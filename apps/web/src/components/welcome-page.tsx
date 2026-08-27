@@ -24,17 +24,20 @@ export function WelcomePage({
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
+    <div className="surface-cloud flex min-h-svh items-center justify-center px-4 py-20">
       <Card className="w-full max-w-md text-center">
         <CardHeader>
-          <CardTitle className="text-2xl">Welcome {user.email}</CardTitle>
+          <CardTitle className="text-display-md break-words">
+            Welcome {user.email}
+          </CardTitle>
           <CardDescription>
             You are signed in{user.name ? ` as ${user.name}` : ""}.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* `button-outline-ink` — neutral against the blue primary. */}
           <Button
-            variant="outline"
+            variant="secondary"
             onClick={handleSignOut}
             disabled={signingOut}
           >
