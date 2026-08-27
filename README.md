@@ -33,6 +33,16 @@ docker compose --profile full up --build
 # web on http://localhost:5173, api on http://localhost:3000
 ```
 
+## Design system
+
+[`DESIGN.md`](./DESIGN.md) is the source of truth for the visual system — colors,
+type scale, spacing, radii, elevation, and component specs. Its **Implementation
+Map** section maps every `{token}` to the Tailwind utility that implements it.
+
+Tokens live in `apps/web/src/index.css`. Reference tokens (`text-display-md`,
+`bg-cloud`, `shadow-soft-lift`, `rounded-xl`) rather than hex/px values, and
+build dark bands with the `surface-ink` class rather than ad-hoc colors.
+
 ## Adding shadcn components
 
 `components.json` is set up, so from `apps/web`:
@@ -40,3 +50,9 @@ docker compose --profile full up --build
 ```bash
 pnpm dlx shadcn@latest add <component>
 ```
+
+New components inherit the design system automatically — the shadcn semantic
+variables (`--background`, `--primary`, `--muted`, …) are aliased onto the
+DESIGN.md tokens. Expect to still adjust radii and type on what you add, since
+the generated defaults use `text-sm`/`rounded-md` conventions rather than the
+token scale.

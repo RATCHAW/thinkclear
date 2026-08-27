@@ -8,8 +8,8 @@ export default function App() {
 
   if (isPending) {
     return (
-      <div className="flex min-h-svh items-center justify-center">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      <div className="surface-cloud flex min-h-svh items-center justify-center">
+        <Loader2 className="size-6 animate-spin text-graphite" />
       </div>
     );
   }

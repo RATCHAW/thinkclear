@@ -50,10 +50,13 @@ export function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
+    <div className="surface-cloud flex min-h-svh items-center justify-center px-4 py-20">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">
+          <span className="text-caption-bold uppercase text-graphite">
+            Mindmap
+          </span>
+          <CardTitle className="text-display-md">
             {mode === "sign-in" ? "Sign in" : "Create an account"}
           </CardTitle>
           <CardDescription>
@@ -62,6 +65,7 @@ export function AuthPage() {
               : "Enter your details to create an account."}
           </CardDescription>
         </CardHeader>
+
         <form onSubmit={handleSubmit}>
           <CardContent className="flex flex-col gap-4">
             {mode === "sign-up" && (
@@ -94,16 +98,19 @@ export function AuthPage() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-caption-md text-destructive">{error}</p>}
           </CardContent>
+
           <CardFooter className="mt-6 flex-col gap-3">
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="animate-spin" />}
               {mode === "sign-in" ? "Sign in" : "Sign up"}
             </Button>
+            {/* {colors.charcoal} carries the de-emphasis rather than an opacity
+                drop, and keeps the primary CTA as the only blue on the page. */}
             <button
               type="button"
-              className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+              className="text-caption-md text-charcoal underline underline-offset-4"
               onClick={() => {
                 setMode(mode === "sign-in" ? "sign-up" : "sign-in");
                 setError(null);

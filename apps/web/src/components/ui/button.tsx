@@ -4,29 +4,57 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * DESIGN.md › Components › Buttons.
+ *
+ * Variant names stay shadcn-compatible so components installed later keep
+ * working; each one maps to a spec entry:
+ *   default   → button-primary       secondary → button-outline-ink
+ *   ink       → button-ink           link      → button-text-link
+ *   outline   → button-outline
+ *
+ * The spec documents Default and Pressed only. Hover is an implementation
+ * deviation (recorded in DESIGN.md › Implementation Map) — it introduces no new
+ * colors and :active lands on the documented {colors.primary-deep}.
+ */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md uppercase transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
+        // button-primary — the lone {colors.primary} CTA
         default:
-          "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
+          "bg-primary text-on-primary hover:bg-primary/90 active:bg-primary-deep disabled:bg-steel disabled:text-on-primary",
+        // button-ink — black filled CTA for dark photo overlays
+        ink: "bg-ink text-on-primary hover:bg-ink/90 active:bg-ink-deep disabled:bg-steel disabled:text-on-primary",
+        // button-outline — blue-text outlined CTA
         outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground",
+          "border border-primary bg-transparent text-primary hover:bg-primary-soft/40 active:border-primary-deep active:text-primary-deep disabled:border-steel disabled:text-steel",
+        // button-outline-ink — neutral outlined CTA
         secondary:
-          "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+          "border border-current bg-transparent text-foreground hover:bg-cloud active:bg-fog disabled:border-steel disabled:text-steel",
+        // Unspec'd but needed by shadcn primitives — kept inside the palette
+        ghost: "text-foreground hover:bg-cloud active:bg-fog disabled:text-steel",
+        destructive:
+          "bg-destructive text-on-primary hover:bg-destructive/90 active:bg-bloom-wine disabled:bg-steel",
+        // button-text-link — inline blue link with underline
+        link: "px-0 text-primary underline underline-offset-4 normal-case active:text-primary-deep disabled:text-steel",
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9",
+        // 44px clears the WCAG-AAA touch target called out in Touch Targets
+        default: "h-11 px-6 text-button-md",
+        sm: "h-9 px-4 text-button-sm",
+        lg: "h-12 px-8 text-button-md",
+        icon: "size-11",
       },
     },
+    compoundVariants: [
+      // button-text-link is type-led, not a box: {typography.link-md}, no height
+      {
+        variant: "link",
+        class: "h-auto px-0 py-1 text-link-md",
+      },
+    ],
     defaultVariants: {
       variant: "default",
       size: "default",

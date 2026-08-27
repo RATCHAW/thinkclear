@@ -28,14 +28,14 @@ export function MindmapList() {
   if (isPending) {
     return (
       <div className="flex justify-center py-6">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <Loader2 className="size-5 animate-spin text-graphite" />
       </div>
     );
   }
 
   if (isError) {
     return (
-      <p className="py-4 text-sm text-destructive">
+      <p className="py-4 text-caption-md text-destructive">
         Could not load your mindmaps.
       </p>
     );
@@ -64,7 +64,7 @@ export function MindmapList() {
       </form>
 
       {mindmaps.length === 0 ? (
-        <p className="py-2 text-sm text-muted-foreground">
+        <p className="py-2 text-caption-md text-graphite">
           No mindmaps yet — create your first one above.
         </p>
       ) : (
@@ -75,9 +75,8 @@ export function MindmapList() {
                 type="button"
                 onClick={() => selectMindmap(mindmap._id)}
                 className={cn(
-                  "w-full rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted",
-                  mindmap._id === selectedMindmapId &&
-                    "bg-muted font-medium",
+                  "w-full rounded-md px-3 py-2 text-left text-body-md transition-colors hover:bg-cloud",
+                  mindmap._id === selectedMindmapId && "bg-fog font-medium",
                 )}
               >
                 {mindmap.title}
