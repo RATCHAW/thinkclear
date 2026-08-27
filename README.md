@@ -18,7 +18,31 @@ cp apps/api/.env.example apps/api/.env   # then set BETTER_AUTH_SECRET
 pnpm dev                          # api on :3000, web on :5173
 ```
 
-Open http://localhost:5173 — sign up, then you'll see “Welcome {email}”.
+Open http://localhost:5173 — sign up, then you land in the workspace: the
+mindmap canvas, with the library sheet behind the trigger in the top-left.
+
+## Mindmaps
+
+A user owns any number of mindmaps. Every route is session-scoped, and every
+query is filtered by `ownerId`, so another account's mindmap and one that never
+existed both come back as a 404.
+
+| Route | |
+|---|---|
+| `GET /api/mindmaps` | the signed-in user's mindmaps, newest first |
+| `GET /api/mindmaps/:id` | one mindmap |
+| `POST /api/mindmaps` | create |
+| `PATCH /api/mindmaps/:id` | rename (partial; an empty body is a 400) |
+| `DELETE /api/mindmaps/:id` | delete, 204 |
+
+Bodies are validated by the zod schemas in `packages/shared`, which the web app
+imports too, so both ends agree on what a valid title is.
+
+On the client, `apps/web/src/hooks/use-mindmaps.ts` wraps these in React Query.
+Rename and delete are optimistic and roll back on failure. The selected mindmap
+id lives in the zustand UI store and is resolved against the fetched list by
+`useActiveMindmap`, so deleting the open mindmap needs no cleanup — it simply
+stops matching.
 
 - API docs (Swagger UI): http://localhost:3000/docs
 - Regenerate the OpenAPI spec + web API types: `pnpm openapi`

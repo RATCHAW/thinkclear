@@ -13,12 +13,13 @@ import { cn } from "@/lib/utils";
  *   ink       → button-ink           link      → button-text-link
  *   outline   → button-outline
  *
- * The spec documents Default and Pressed only. Hover is an implementation
- * deviation (recorded in DESIGN.md › Implementation Map) — it introduces no new
- * colors and :active lands on the documented {colors.primary-deep}.
+ * The spec documents Default and Pressed only. Hover and press-scale are
+ * implementation deviations (recorded in DESIGN.md › Implementation Map) — they
+ * introduce no new colors and :active lands on the documented
+ * {colors.primary-deep}.
  */
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md uppercase transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md uppercase outline-none transition-[color,background-color,border-color,transform] duration-[160ms] ease-out-strong active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -49,10 +50,12 @@ const buttonVariants = cva(
       },
     },
     compoundVariants: [
-      // button-text-link is type-led, not a box: {typography.link-md}, no height
+      // button-text-link is type-led, not a box: {typography.link-md}, no
+      // height. Press-scale is skipped too — a run of text shrinking mid-
+      // sentence reads as a glitch, not as feedback.
       {
         variant: "link",
-        class: "h-auto px-0 py-1 text-link-md",
+        class: "h-auto px-0 py-1 text-link-md active:scale-100",
       },
     ],
     defaultVariants: {
