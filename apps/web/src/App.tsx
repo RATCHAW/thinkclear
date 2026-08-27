@@ -1,6 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { AuthPage } from "@/components/auth-page";
-import { WelcomePage } from "@/components/welcome-page";
+import { WorkspacePage } from "@/components/workspace-page";
 import { useSession } from "@/lib/auth-client";
 
 export default function App() {
@@ -14,5 +14,5 @@ export default function App() {
     );
   }
 
-  return session ? <WelcomePage user={session.user} /> : <AuthPage />;
+  return session ? <WorkspacePage user={session.user} /> : <AuthPage />;
 }

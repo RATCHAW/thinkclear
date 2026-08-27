@@ -521,6 +521,7 @@ break the white canvas.
 | `card-product`, `card-pricing-tier`, `card-customer-story` | `<Card>` (Soft Lift, `{rounded.xl}`, `{spacing.xl}` padding) |
 | `text-input`, `text-input-focused` | `<Input>` |
 | `badge-pill-ink` / `badge-pill-outline` / `badge-sale-coral` | `<Badge variant="ink" \| "outline" \| "sale">` |
+| Elevation level 3 "Floating Modal" — the `mobile-nav sheet` row | `<Sheet>` (`{colors.paper}` on `{rounded.xl}`, Floating shadow, inset 8px from the viewport) |
 | `chevron-decoration` | Not implemented — see below |
 
 `chevron-decoration` is spec'd but deliberately unbuilt. The spec reserves it for
@@ -528,7 +529,35 @@ hero bands and full-page banners, and the app has none yet; on the auth card it
 read as noise rather than an architectural gesture. Build it when there is a
 real hero to flank.
 
-### Two deviations, recorded
+### Motion
+
+The spec is silent on motion, so the rules come from
+`.claude/skills/emil-design-eng` and the tokens live alongside the rest in
+`@theme` in `apps/web/src/index.css`:
+
+| Token | Value | Use |
+|---|---|---|
+| `--ease-out-strong` | `cubic-bezier(0.23, 1, 0.32, 1)` | Anything entering or leaving; hover and press feedback |
+| `--ease-in-out-strong` | `cubic-bezier(0.77, 0, 0.175, 1)` | Movement across the screen |
+| `--ease-drawer` | `cubic-bezier(0.32, 0.72, 0, 1)` | Panels sliding in from an edge |
+
+Four rules hold everywhere:
+
+- **`ease-in` never appears.** It withholds movement at the exact moment the
+  user is watching, so the same duration reads as slower.
+- **Nothing exceeds 300ms**, and exits are quicker than entrances — the sheet
+  arrives in 280ms and leaves in 200ms.
+- **Only `transform`, `opacity`, and colors animate.** `transition-all` is
+  never used; every transition names its properties.
+- **`prefers-reduced-motion` keeps the fade and drops the travel.** It is
+  implemented by redefining the keyframes inside the media query, so no
+  component has to know about it.
+
+Sheet motion is CSS keyframes rather than transitions because Radix drives exit
+animations off `animationend`. Everywhere else — hover, press, row highlight —
+uses transitions, which retarget mid-flight instead of restarting.
+
+### Three deviations, recorded
 
 1. **Hover states.** The spec documents only Default and Pressed. A pointer UI
    needs feedback in between, so filled buttons use `hover:bg-*/90` and land on
@@ -537,6 +566,11 @@ real hero to flank.
 2. **Button label case.** The Overview says "capitalize labels"; the Typography
    table, the `button-primary` spec, and the Do's list all say uppercase. The
    implementation follows the three-against-one majority and sets uppercase.
+3. **Press feedback.** Every pressable element also takes `scale(0.97)` on
+   `:active` over 160ms. The spec's Pressed state is a color swap only, which
+   on a fast pointer is easy to miss entirely; the scale is what makes a
+   control feel like it heard the click. `button-text-link` opts out — a run of
+   text shrinking mid-sentence reads as a glitch, not as feedback.
 
 ### Font
 
