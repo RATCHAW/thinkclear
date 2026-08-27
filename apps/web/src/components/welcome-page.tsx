@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { signOut } from "@/lib/auth-client";
+import { MindmapList } from "@/components/mindmap-list";
 
 export function WelcomePage({
   user,
@@ -25,15 +26,17 @@ export function WelcomePage({
 
   return (
     <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-md text-center">
-        <CardHeader>
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
           <CardTitle className="text-2xl">Welcome {user.email}</CardTitle>
           <CardDescription>
             You are signed in{user.name ? ` as ${user.name}` : ""}.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
+          <MindmapList />
           <Button
+            className="w-full"
             variant="outline"
             onClick={handleSignOut}
             disabled={signingOut}
