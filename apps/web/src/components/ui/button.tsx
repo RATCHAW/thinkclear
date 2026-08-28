@@ -48,6 +48,9 @@ const buttonVariants = cva(
         sm: "h-9 px-4 text-button-sm",
         lg: "h-12 px-8 text-button-md",
         icon: "size-11",
+        // Compact icon button for dense chrome (chat toolbars, message
+        // actions) where the 44px target would dwarf the content it acts on.
+        "icon-sm": "size-8",
       },
     },
     compoundVariants: [
