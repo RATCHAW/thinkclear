@@ -64,10 +64,36 @@ export interface components {
         MeResponseDto: {
             user: components["schemas"]["MeUserDto"];
         };
+        MindmapNodeDto: {
+            /**
+             * @description Unique within the mindmap. The node with id "root" is the map's root and cannot be removed.
+             * @example root
+             */
+            id: string;
+            /** @example Backend */
+            title: string;
+            /**
+             * @description Canvas position. The editor lays the tree out from scratch on load, so this is a hint about sibling order rather than a fixed coordinate.
+             * @example 0
+             */
+            x: number;
+            /** @example 0 */
+            y: number;
+        };
+        MindmapEdgeDto: {
+            /** @description Unique within the mindmap */
+            id: string;
+            /** @description Node id the edge starts from */
+            source: string;
+            /** @description Node id the edge points to. Direction is presentation only — the editor re-points edges parent to child when it lays the tree out. */
+            target: string;
+        };
         MindmapDto: {
             _id: string;
             title: string;
             ownerId: string;
+            nodes: components["schemas"]["MindmapNodeDto"][];
+            edges: components["schemas"]["MindmapEdgeDto"][];
             createdAt: string;
             updatedAt: string;
         };
@@ -78,6 +104,10 @@ export interface components {
         UpdateMindmapDto: {
             /** @example Renamed mindmap */
             title?: string;
+            /** @description Replaces every node. Ids must be unique and one of them must be "root". */
+            nodes?: components["schemas"]["MindmapNodeDto"][];
+            /** @description Replaces every edge. Ids must be unique, both endpoints must be nodes of this mindmap, and the result must stay a tree: no self-connections, no node pair connected twice, and no loops. Disconnected branches are allowed. */
+            edges?: components["schemas"]["MindmapEdgeDto"][];
         };
     };
     responses: never;
@@ -146,6 +176,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MindmapDto"];
                 };
+            };
+            /** @description Body failed validation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -223,6 +260,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MindmapDto"];
                 };
+            };
+            /** @description Body failed validation, or the patch would leave the mindmap with a graph that is not a tree */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             404: {
                 headers: {

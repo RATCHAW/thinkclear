@@ -10,6 +10,7 @@ import {
   Post,
 } from "@nestjs/common";
 import {
+  ApiBadRequestResponse,
   ApiBody,
   ApiCreatedResponse,
   ApiNoContentResponse,
@@ -49,6 +50,7 @@ export class MindmapsController {
   @Post()
   @ApiBody({ type: CreateMindmapDto })
   @ApiCreatedResponse({ type: MindmapDto })
+  @ApiBadRequestResponse({ description: "Body failed validation" })
   create(
     @Session() session: UserSession,
     @Body(new ZodValidationPipe(createMindmapSchema))
@@ -60,6 +62,10 @@ export class MindmapsController {
   @Patch(":id")
   @ApiBody({ type: UpdateMindmapDto })
   @ApiOkResponse({ type: MindmapDto })
+  @ApiBadRequestResponse({
+    description:
+      "Body failed validation, or the patch would leave the mindmap with a graph that is not a tree",
+  })
   @ApiNotFoundResponse()
   update(
     @Session() session: UserSession,

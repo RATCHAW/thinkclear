@@ -5,6 +5,8 @@ import type { components } from "@/lib/api-types";
 import { useUiStore } from "@/stores/ui-store";
 
 export type Mindmap = components["schemas"]["MindmapDto"];
+export type MindmapNode = components["schemas"]["MindmapNodeDto"];
+export type MindmapEdge = components["schemas"]["MindmapEdgeDto"];
 
 export const mindmapKeys = {
   all: ["mindmaps"] as const,
@@ -40,7 +42,9 @@ export function useCreateMindmap() {
       const { data, error } = await api.POST("/api/mindmaps", {
         body: { title },
       });
-      if (error) throw error;
+      // A 201 always carries the created mindmap — `data` is optional in the
+      // generated types only because the route can also answer 400.
+      if (error || !data) throw error ?? new Error("Create returned no mindmap");
       return data;
     },
     onSuccess: () => {
@@ -75,6 +79,42 @@ export function useUpdateMindmap() {
     onError: (_error, _variables, context) => restoreList(queryClient, context),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: mindmapKeys.all });
+    },
+  });
+}
+
+/**
+ * Persists the canvas graph. Fired by a debounced autosave, so instead of the
+ * rename flow's optimistic patch + invalidate (which would refetch the whole
+ * list on every pause in editing) the server's response is written straight
+ * into the list cache — it is the authoritative post-save document anyway.
+ */
+export function useSaveMindmapGraph() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ...body
+    }: {
+      id: string;
+      nodes: MindmapNode[];
+      edges: MindmapEdge[];
+      title?: string;
+    }) => {
+      const { data, error } = await api.PATCH("/api/mindmaps/{id}", {
+        params: { path: { id } },
+        body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (updated) => {
+      if (!updated) return;
+      queryClient.setQueryData<Mindmap[]>(mindmapKeys.all, (list) =>
+        list?.map((mindmap) =>
+          mindmap._id === updated._id ? updated : mindmap,
+        ),
+      );
     },
   });
 }
