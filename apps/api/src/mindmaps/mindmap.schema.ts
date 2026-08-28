@@ -5,37 +5,37 @@ import { HydratedDocument } from "mongoose";
 // `_id` would just be a second, unused identity.
 @Schema({ _id: false })
 export class MindmapNode {
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   id: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   title: string;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   x: number;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   y: number;
 }
 
 @Schema({ _id: false })
 export class MindmapEdge {
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   id: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   source: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   target: string;
 }
 
 @Schema({ timestamps: true, collection: "mindmaps" })
 export class Mindmap {
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   title: string;
 
-  @Prop({ required: true, index: true })
+  @Prop({ type: String, required: true, index: true })
   ownerId: string;
 
   @Prop({ type: [SchemaFactory.createForClass(MindmapNode)], default: [] })

@@ -98,7 +98,9 @@ export function AuthPage() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            {error && <p className="text-caption-md text-destructive">{error}</p>}
+            {error && (
+              <p className="text-caption-md text-destructive">{error}</p>
+            )}
           </CardContent>
 
           <CardFooter className="mt-6 flex-col gap-3">

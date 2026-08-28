@@ -10,15 +10,30 @@ docker compose up -d mongo          # MongoDB on :27017 (required for api + auth
 cp apps/api/.env.example apps/api/.env   # then set BETTER_AUTH_SECRET
 pnpm dev                            # turbo: api :3000, web :5173
 pnpm build                          # all workspaces
-pnpm typecheck                      # the only automated check in the repo
+pnpm lint                           # ESLint, including type-aware promise rules
+pnpm lint:fix                       # apply safe ESLint fixes
+pnpm format                         # write Prettier formatting
+pnpm format:check                   # check formatting without writing
+pnpm typecheck                      # source type checks
+pnpm test                           # all Vitest spec + end-to-end projects
+pnpm test:spec                      # shared, API, and web unit specs
+pnpm test:e2e                       # API HTTP + Chromium browser flows
+pnpm test:watch                     # interactive Vitest watch mode
+pnpm test:coverage                  # whole-repo coverage report
+pnpm test:install-browser           # install Chromium for browser tests
 pnpm openapi                        # regenerate openapi.json + web api-types.d.ts
 ```
 
-There is **no test suite and no linter** — `pnpm lint` resolves to no tasks.
-`pnpm typecheck` is what verifies a change. Run it from the root so turbo builds
-`@mindmap/shared` first; `apps/api` and `apps/web` both consume it from `dist/`,
-so editing `packages/shared` and typechecking a single app in isolation will
-check against a stale build.
+Vitest is split into named projects: `shared:spec`, `api:spec`, `web:spec`,
+`api:e2e`, and `web:e2e`. The browser project uses headless Chromium through
+Vitest Browser Mode. Install it once with `pnpm test:install-browser`
+if the local Playwright cache is empty. ESLint and Prettier are configured once
+at the repository root; formatting rules are disabled inside ESLint so the two
+tools do not compete. Run type checks from the root so turbo builds
+`@mindmap/shared` first;
+`apps/api` and `apps/web` both consume it from `dist/`, so editing
+`packages/shared` and typechecking a single app in isolation will check against
+a stale build.
 
 Single-workspace commands: `pnpm --filter @mindmap/api <script>` (likewise
 `@mindmap/web`, `@mindmap/shared`).

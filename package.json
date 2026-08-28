@@ -3,21 +3,41 @@
   "private": true,
   "packageManager": "pnpm@10.17.0",
   "engines": {
-    "node": ">=20"
+    "node": "^20.19.0 || ^22.13.0 || >=24"
   },
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "lint": "turbo run lint",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "typecheck": "turbo run typecheck",
-    "openapi": "turbo run openapi generate:types"
+    "openapi": "turbo run openapi generate:types",
+    "test": "vitest run",
+    "test:spec": "vitest run --project shared:spec --project api:spec --project web:spec",
+    "test:e2e": "vitest run --project api:e2e --project web:e2e",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:install-browser": "pnpm --filter @mindmap/web exec playwright install chromium"
   },
   "devDependencies": {
-    "turbo": "^2.10.12"
+    "@eslint/js": "^10.0.1",
+    "@vitest/coverage-v8": "4.1.11",
+    "eslint": "^10.9.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-turbo": "^2.10.12",
+    "globals": "^17.11.0",
+    "prettier": "^3.9.6",
+    "turbo": "^2.10.12",
+    "typescript-eslint": "^8.68.0",
+    "vitest": "4.1.11"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "esbuild"
+      "esbuild",
+      "playwright"
     ]
   }
 }

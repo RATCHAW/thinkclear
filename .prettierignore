@@ -1,0 +1,20 @@
+# Generated contracts keep the formatting produced by their generators.
+apps/api/openapi.json
+apps/web/src/lib/api-types.d.ts
+
+# Vendored skills, agent state, and prose are not application source.
+.agents/
+.context/
+*.md
+skills-lock.json
+
+# Build output and tool state.
+**/dist/
+**/.turbo/
+coverage/
+apps/web/.vitest-attachments/
+**/__screenshots__/
+*.tsbuildinfo
+
+# pnpm owns its lockfile formatting.
+pnpm-lock.yaml

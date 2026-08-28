@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "generate:types": "openapi-typescript ../api/openapi.json -o src/lib/api-types.d.ts",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.86",
@@ -36,9 +36,12 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "@vitest/browser-playwright": "4.1.11",
     "openapi-typescript": "^7.13.0",
+    "playwright": "1.62.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.2",
-    "vite": "^7.1.5"
+    "vite": "^7.1.5",
+    "vitest-browser-react": "2.2.0"
   }
 }

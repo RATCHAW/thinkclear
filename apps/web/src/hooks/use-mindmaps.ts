@@ -44,11 +44,12 @@ export function useCreateMindmap() {
       });
       // A 201 always carries the created mindmap — `data` is optional in the
       // generated types only because the route can also answer 400.
-      if (error || !data) throw error ?? new Error("Create returned no mindmap");
+      if (error || !data)
+        throw error ?? new Error("Create returned no mindmap");
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: mindmapKeys.all });
+      void queryClient.invalidateQueries({ queryKey: mindmapKeys.all });
     },
   });
 }
@@ -78,7 +79,7 @@ export function useUpdateMindmap() {
       ),
     onError: (_error, _variables, context) => restoreList(queryClient, context),
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: mindmapKeys.all });
+      void queryClient.invalidateQueries({ queryKey: mindmapKeys.all });
     },
   });
 }
@@ -134,7 +135,7 @@ export function useDeleteMindmap() {
       ),
     onError: (_error, _variables, context) => restoreList(queryClient, context),
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: mindmapKeys.all });
+      void queryClient.invalidateQueries({ queryKey: mindmapKeys.all });
     },
   });
 }
@@ -158,7 +159,10 @@ async function patchList(
   return { previous };
 }
 
-function restoreList(queryClient: QueryClient, context: ListSnapshot | undefined) {
+function restoreList(
+  queryClient: QueryClient,
+  context: ListSnapshot | undefined,
+) {
   if (context?.previous) {
     queryClient.setQueryData(mindmapKeys.all, context.previous);
   }
