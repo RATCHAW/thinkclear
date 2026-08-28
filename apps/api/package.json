@@ -7,16 +7,16 @@
     "dev": "nest start --watch",
     "start": "node dist/main.js",
     "openapi": "nest build && node dist/generate-openapi.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json"
   },
   "dependencies": {
+    "@mindmap/shared": "workspace:*",
     "@nestjs/common": "^11.1.6",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.1.6",
     "@nestjs/mongoose": "^11.0.4",
     "@nestjs/platform-express": "^11.1.6",
     "@nestjs/swagger": "^11.4.7",
-    "@mindmap/shared": "workspace:*",
     "@thallesp/nestjs-better-auth": "^2.7.0",
     "ai": "^7.0.83",
     "better-auth": "^1.7.2",
@@ -30,8 +30,11 @@
   "devDependencies": {
     "@nestjs/cli": "^11.0.24",
     "@nestjs/schematics": "^11.0.9",
+    "@nestjs/testing": "11.2.3",
     "@types/express": "^5.0.3",
     "@types/node": "^24.5.2",
+    "@types/supertest": "7.2.1",
+    "supertest": "7.2.2",
     "typescript": "^5.9.2"
   }
 }

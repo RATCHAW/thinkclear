@@ -13,6 +13,7 @@ AI mindmap app monorepo — Turborepo + pnpm.
 
 ```bash
 pnpm install
+pnpm test:install-browser          # once, for browser end-to-end tests
 docker compose up -d mongo        # start MongoDB
 cp apps/api/.env.example apps/api/.env   # then set BETTER_AUTH_SECRET
 pnpm dev                          # api on :3000, web on :5173
@@ -20,6 +21,30 @@ pnpm dev                          # api on :3000, web on :5173
 
 Open http://localhost:5173 — sign up, then you land in the workspace: the
 mindmap canvas, with the library sheet behind the trigger in the top-left.
+
+## Testing
+
+The whole monorepo uses Vitest. Fast specs cover shared domain rules and API
+services; end-to-end projects exercise the Nest HTTP boundary and the React app
+in real headless Chromium. Browser tests use an in-memory API boundary, so the
+suite does not require MongoDB or running dev servers.
+
+```bash
+pnpm test             # everything, once
+pnpm test:spec        # shared, API, and web specs
+pnpm test:e2e         # API HTTP + browser user flows
+pnpm test:watch       # watch mode
+pnpm test:coverage    # text, HTML, and lcov coverage
+```
+
+Code quality is enforced from the repository root:
+
+```bash
+pnpm lint             # ESLint, including React Hooks and typed promise rules
+pnpm lint:fix         # apply safe ESLint fixes
+pnpm format           # format supported files with Prettier
+pnpm format:check     # verify formatting without changing files
+```
 
 ## Mindmaps
 

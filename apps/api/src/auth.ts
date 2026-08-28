@@ -2,8 +2,7 @@ import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { MongoClient } from "mongodb";
 
-const mongoUri =
-  process.env.MONGODB_URI ?? "mongodb://localhost:27017/mindmap";
+const mongoUri = process.env.MONGODB_URI ?? "mongodb://localhost:27017/mindmap";
 
 const client = new MongoClient(mongoUri);
 

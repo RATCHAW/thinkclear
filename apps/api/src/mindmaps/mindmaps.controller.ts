@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   Param,
   Patch,
   Post,
@@ -32,7 +33,10 @@ import { MindmapsService } from "./mindmaps.service";
 @ApiTags("mindmaps")
 @Controller("api/mindmaps")
 export class MindmapsController {
-  constructor(private readonly mindmapsService: MindmapsService) {}
+  constructor(
+    @Inject(MindmapsService)
+    private readonly mindmapsService: MindmapsService,
+  ) {}
 
   @Get()
   @ApiOkResponse({ type: [MindmapDto] })

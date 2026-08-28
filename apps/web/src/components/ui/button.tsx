@@ -35,7 +35,8 @@ const buttonVariants = cva(
         secondary:
           "border border-current bg-transparent text-foreground hover:bg-cloud active:bg-fog disabled:border-steel disabled:text-steel",
         // Unspec'd but needed by shadcn primitives — kept inside the palette
-        ghost: "text-foreground hover:bg-cloud active:bg-fog disabled:text-steel",
+        ghost:
+          "text-foreground hover:bg-cloud active:bg-fog disabled:text-steel",
         destructive:
           "bg-destructive text-on-primary hover:bg-destructive/90 active:bg-bloom-wine disabled:bg-steel",
         // button-text-link — inline blue link with underline

@@ -90,7 +90,10 @@ export class MindmapsService {
   ) {
     const issues = findMindmapGraphIssues(nodes, edges);
     if (issues.length) {
-      throw new BadRequestException({ message: "Invalid mindmap graph", issues });
+      throw new BadRequestException({
+        message: "Invalid mindmap graph",
+        issues,
+      });
     }
   }
 

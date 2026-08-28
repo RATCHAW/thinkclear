@@ -4,3 +4,8 @@ dist/
 .env
 *.local
 .DS_Store
+coverage/
+playwright-report/
+test-results/
+**/__screenshots__/
+.vitest-attachments/

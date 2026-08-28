@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   Background,
   BackgroundVariant,
@@ -93,7 +99,9 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
   const pending = useRef<{ title?: string } | null>(null);
   const timer = useRef<number | undefined>(undefined);
   const graph = useRef({ nodes, edges });
-  graph.current = { nodes, edges };
+  useLayoutEffect(() => {
+    graph.current = { nodes, edges };
+  }, [nodes, edges]);
   // The map title the server currently has. Root renames move it; comparing
   // against it keeps autosave from re-sending a stale root title over a
   // rename made in the library sheet.
@@ -134,9 +142,7 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
   }, [nodes, edges, flush]);
 
   // Closing the map (or the whole workspace) mid-debounce still saves.
-  const flushRef = useRef(flush);
-  flushRef.current = flush;
-  useEffect(() => () => flushRef.current(), []);
+  useEffect(() => () => flush(), [flush]);
 
   // -- Static tree layout --------------------------------------------------
   // Nodes are never dragged: whenever the graph's structure (or a node's
@@ -145,7 +151,9 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
   // first and the settled layout doesn't need a second pass.
   const structureKey = [
     nodes
-      .map((node) => `${node.id}@${Math.round((node.measured?.width ?? 0) / 8)}`)
+      .map(
+        (node) => `${node.id}@${Math.round((node.measured?.width ?? 0) / 8)}`,
+      )
       .join(),
     edges.map((edge) => `${edge.source}>${edge.target}`).join(),
   ].join("|");
@@ -183,10 +191,7 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
   // the immediate next keystroke. The drop point only seeds where the new
   // branch sorts among its siblings — the tree layout decides the position.
   const onConnectEnd = useCallback(
-    (
-      event: MouseEvent | TouchEvent,
-      connectionState: FinalConnectionState,
-    ) => {
+    (event: MouseEvent | TouchEvent, connectionState: FinalConnectionState) => {
       if (
         connectionState.isValid ||
         !connectionState.fromNode ||
@@ -284,7 +289,11 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-end p-2">
         <span className="flex h-11 items-center gap-1.5 px-2 text-caption-sm text-graphite">
           {save.isPending && <Loader2 className="size-3 animate-spin" />}
-          {save.isPending ? "Saving" : save.isError ? "Save failed — retrying on next change" : "Saved"}
+          {save.isPending
+            ? "Saving"
+            : save.isError
+              ? "Save failed — retrying on next change"
+              : "Saved"}
         </span>
       </div>
 
@@ -388,7 +397,7 @@ function TopicNodeView({ id, data, selected }: NodeProps<TopicNode>) {
         return;
       }
     }
-    deleteElements({ nodes: [{ id }] });
+    void deleteElements({ nodes: [{ id }] });
   }
 
   return (
@@ -399,7 +408,9 @@ function TopicNodeView({ id, data, selected }: NodeProps<TopicNode>) {
       }}
       className={cn(
         "rounded-md border-2 border-ink-deep px-4 py-2 text-ink-deep",
-        isRoot ? "bg-[#ffe600] text-body-emphasis" : "bg-[#ffe599] text-caption-bold",
+        isRoot
+          ? "bg-[#ffe600] text-body-emphasis"
+          : "bg-[#ffe599] text-caption-bold",
         selected && "shadow-[0_0_0_3px_#c9e0fc]",
       )}
     >
@@ -420,8 +431,16 @@ function TopicNodeView({ id, data, selected }: NodeProps<TopicNode>) {
       )}
       {/* Loose connection mode makes both dots interchangeable grab points,
           so branches can grow from either end of a topic. */}
-      <Handle type="target" position={Position.Top} className="!size-2.5 !border-none !bg-[#2b78e4]" />
-      <Handle type="source" position={Position.Bottom} className="!size-2.5 !border-none !bg-[#2b78e4]" />
+      <Handle
+        type="target"
+        position={Position.Top}
+        className="!size-2.5 !border-none !bg-[#2b78e4]"
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className="!size-2.5 !border-none !bg-[#2b78e4]"
+      />
 
       <NodeToolbar
         isVisible={selected && !editing}
@@ -536,7 +555,9 @@ function toFlowNodes(mindmap: Mindmap): TopicNode[] {
 }
 
 function toFlowEdges(mindmap: Mindmap): Edge[] {
-  return mindmap.edges.map((edge) => makeEdge(edge.source, edge.target, edge.id));
+  return mindmap.edges.map((edge) =>
+    makeEdge(edge.source, edge.target, edge.id),
+  );
 }
 
 function makeEdge(source: string, target: string, id?: string): Edge {
