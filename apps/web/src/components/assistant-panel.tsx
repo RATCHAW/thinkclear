@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import {
   DefaultChatTransport,
@@ -61,6 +61,9 @@ import {
   useWorkspaceRoute,
 } from "@/hooks/use-workspace-route";
 import { cn } from "@/lib/utils";
+
+/** Membership is checked once per finished tool call, so it is a set. */
+const MUTATING_TOOLS = new Set<string>(MUTATING_CHAT_TOOLS);
 
 /**
  * The assistant: a floating panel over the workspace that manages the user's
@@ -146,31 +149,29 @@ export function AssistantPanel() {
   // out here: every finished mutating tool call invalidates the mindmap list,
   // and the refetched document's updatedAt tells an open editor to reseed. A
   // newly created mindmap is opened on the canvas right away.
+  //
+  // Only the newest message is looked at. Tool parts accumulate on the
+  // assistant message that is streaming, and `output-available` is terminal, so
+  // walking the whole transcript would re-scan every earlier turn on every
+  // chunk that arrives — dozens of times a second — to find nothing.
   const handledToolCalls = useRef(new Set<string>());
+  const latestMessage = messages.at(-1);
   useEffect(() => {
-    for (const message of messages) {
-      if (message.role !== "assistant") continue;
-      for (const part of message.parts) {
-        if (!isToolUIPart(part) || part.state !== "output-available") continue;
-        if (handledToolCalls.current.has(part.toolCallId)) continue;
-        handledToolCalls.current.add(part.toolCallId);
-        const toolName = getToolName(part);
-        if (!(MUTATING_CHAT_TOOLS as readonly string[]).includes(toolName)) {
-          continue;
-        }
-        void queryClient.invalidateQueries({ queryKey: mindmapKeys.all });
-        const output = part.output as
-          { mindmapId?: string; error?: string } | undefined;
-        if (
-          toolName === "create_mindmap" &&
-          output?.mindmapId &&
-          !output.error
-        ) {
-          openMindmap(output.mindmapId);
-        }
+    if (latestMessage?.role !== "assistant") return;
+    for (const part of latestMessage.parts) {
+      if (!isToolUIPart(part) || part.state !== "output-available") continue;
+      if (handledToolCalls.current.has(part.toolCallId)) continue;
+      handledToolCalls.current.add(part.toolCallId);
+      const toolName = getToolName(part);
+      if (!MUTATING_TOOLS.has(toolName)) continue;
+      void queryClient.invalidateQueries({ queryKey: mindmapKeys.all });
+      const output = part.output as
+        { mindmapId?: string; error?: string } | undefined;
+      if (toolName === "create_mindmap" && output?.mindmapId && !output.error) {
+        openMindmap(output.mindmapId);
       }
     }
-  }, [messages, queryClient]);
+  }, [latestMessage, queryClient]);
 
   /**
    * The text of a message whose conversation could not be created. The prompt
@@ -210,7 +211,10 @@ export function AssistantPanel() {
     void startAndSend(text);
   }
 
-  function startNewChat() {
+  // The three below are the history layer's props, and it is memoized: every
+  // streamed chunk re-renders this panel, and rebuilding them inline would
+  // re-render the whole conversation list along with it.
+  const startNewChat = useCallback(() => {
     // Whatever has streamed so far is already persisted server-side, so
     // stopping mid-answer loses nothing but the rest of the reply.
     if (busy) void stop();
@@ -218,17 +222,27 @@ export function AssistantPanel() {
     setSeededId(null);
     setMessages([]);
     openConversation(null);
-  }
+  }, [busy, stop, setMessages]);
 
-  function handleOpenConversation(id: string) {
-    if (id === activeConversationId) {
-      setHistoryOpen(false);
-      return;
-    }
-    if (busy) void stop();
-    setUnsentText(null);
-    openConversation(id);
-  }
+  const handleOpenConversation = useCallback(
+    (id: string) => {
+      if (id === activeConversationId) {
+        setHistoryOpen(false);
+        return;
+      }
+      if (busy) void stop();
+      setUnsentText(null);
+      openConversation(id);
+    },
+    [activeConversationId, busy, stop],
+  );
+
+  const handleConversationDeleted = useCallback(
+    (id: string) => {
+      if (id === activeConversationId) startNewChat();
+    },
+    [activeConversationId, startNewChat],
+  );
 
   const isEmptyNewChat = activeConversationId === null && messages.length === 0;
 
@@ -389,9 +403,7 @@ export function AssistantPanel() {
           activeConversationId={activeConversationId}
           onSelect={handleOpenConversation}
           onNewChat={startNewChat}
-          onDeleted={(id) => {
-            if (id === activeConversationId) startNewChat();
-          }}
+          onDeleted={handleConversationDeleted}
         />
       </div>
     </aside>

@@ -140,8 +140,17 @@ const edgeTypes = { topic: TopicEdgeView };
 function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
   const { screenToFlowPosition, fitView } = useReactFlow();
   const reduceMotion = Boolean(useReducedMotion());
-  const [nodes, setNodes, onNodesChange] = useNodesState(toFlowNodes(mindmap));
-  const [edges, setEdges, onEdgesChange] = useEdgesState(toFlowEdges(mindmap));
+  // Lazily, because these walk the whole document and are read exactly once:
+  // `useNodesState` keeps its argument only on the first render, but it is
+  // still *evaluated* on every one — and a relayout renders this component
+  // once per animation frame, where rebuilding the graph and throwing it away
+  // is the most expensive thing happening.
+  const [seed] = useState(() => ({
+    nodes: toFlowNodes(mindmap),
+    edges: toFlowEdges(mindmap),
+  }));
+  const [nodes, setNodes, onNodesChange] = useNodesState(seed.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(seed.edges);
   const save = useSaveMindmapGraph();
   // `mutate` is referentially stable while the `save` object is not; closing
   // over the object would rebuild `flush` (and re-arm the autosave effect)
@@ -161,7 +170,7 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
   // The map title the server currently has. Root renames move it; comparing
   // against it keeps autosave from re-sending a stale root title over a
   // rename made in the library sheet.
-  const syncedTitle = useRef(rootTitle(toFlowNodes(mindmap)) ?? mindmap.title);
+  const syncedTitle = useRef(rootTitle(seed.nodes) ?? mindmap.title);
   // The `updatedAt` this editor's local state corresponds to: the document it
   // seeded from, advanced by every save it makes itself. When the prop's
   // `updatedAt` moves past it, someone else wrote — see the reconcile effect.
