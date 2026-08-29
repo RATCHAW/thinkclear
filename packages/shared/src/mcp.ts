@@ -47,13 +47,22 @@ export function mcpScopeForTool(toolName: string): McpScope {
 }
 
 /**
- * Tools whose effect cannot be undone. MCP clients surface `destructiveHint`
- * in their own confirmation prompts, which is the only place a human sees the
- * warning — there is no chat transcript to ask "are you sure?" in.
+ * Tools that can destroy work the user wrote by hand. MCP clients surface
+ * `destructiveHint` in their own confirmation prompts, which is the only place
+ * a human sees the warning — there is no chat transcript to ask "are you sure?"
+ * in.
+ *
+ * The line is "content that cannot be typed back", not the spec's broader
+ * additive/non-additive split: flagging every update would put a confirmation
+ * in front of renaming a topic and teach people to click through them.
+ * `set_topic_note` is on the list for the same reason the deletes are — it
+ * replaces a note wholesale, so an agent extending one without reading it
+ * first silently loses however many paragraphs were there.
  */
 const DESTRUCTIVE_TOOLS: readonly string[] = [
   "delete_mindmap",
   "delete_topics",
+  "set_topic_note",
 ];
 
 export function isDestructiveMcpTool(toolName: string): boolean {

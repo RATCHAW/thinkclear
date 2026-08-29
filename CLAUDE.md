@@ -93,6 +93,16 @@ and a tool added for one appears in the other. `packages/shared/src/mcp.ts`
 derives each tool's required scope from `MUTATING_CHAT_TOOLS`, so a new write
 tool cannot become callable with a read-only token by omission.
 
+That derivation is the point, and notes are the worked example: `read_topic_note`
+and `set_topic_note` were added for the assistant and reached MCP correctly
+scoped with no change in `apps/api/src/mcp`. What a new tool *does* need is a
+decision about `isDestructiveMcpTool` — the list is "content that cannot be
+typed back" (the deletes, and `set_topic_note`, which replaces a note
+wholesale), deliberately narrower than the MCP spec's additive/non-additive
+split so the hint keeps meaning something. `mcp.service.spec.ts` asserts the
+full tool list against the real `MindmapToolsService`, so adding a tool fails
+there until it has been placed.
+
 Serving is per-request and stateless (`createMcpHandler` with
 `legacy: "stateless"`, which keeps 2025-era clients working — `reject` would
 validate but nothing shipping could connect). The factory builds a fresh

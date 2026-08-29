@@ -19,6 +19,13 @@ describe("MCP scopes", () => {
   it("leaves reading tools on the read scope", () => {
     expect(mcpScopeForTool("list_mindmaps")).toBe("mindmaps:read");
     expect(mcpScopeForTool("read_mindmap")).toBe("mindmaps:read");
+    expect(mcpScopeForTool("read_topic_note")).toBe("mindmaps:read");
+  });
+
+  it("puts note writing behind the write scope, like every other edit", () => {
+    // Notes arrived after MCP did and needed no change here: the split is
+    // derived from the list that already says which tools write.
+    expect(mcpScopeForTool("set_topic_note")).toBe("mindmaps:write");
   });
 
   it("describes every scope it offers, so consent can never show a bare name", () => {
@@ -30,10 +37,16 @@ describe("MCP scopes", () => {
     );
   });
 
-  it("flags the tools whose effect cannot be undone", () => {
+  it("flags the tools that can destroy work the user wrote by hand", () => {
     expect(isDestructiveMcpTool("delete_mindmap")).toBe(true);
     expect(isDestructiveMcpTool("delete_topics")).toBe(true);
+    // Writing a note replaces it wholesale, and a note can be paragraphs.
+    expect(isDestructiveMcpTool("set_topic_note")).toBe(true);
+
+    // A title is retyped in seconds; putting a confirmation in front of every
+    // update would just train people to click through them.
     expect(isDestructiveMcpTool("rename_mindmap")).toBe(false);
+    expect(isDestructiveMcpTool("read_topic_note")).toBe(false);
   });
 
   it("grants a tool only to a token carrying its scope", () => {
