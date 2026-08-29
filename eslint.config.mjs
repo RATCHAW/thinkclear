@@ -15,8 +15,11 @@ export default tseslint.config(
   {
     ignores: [
       "**/dist/",
+      "**/.next/",
       "**/.turbo/",
       "coverage/",
+      // Written by `next build`; its contents are three reference directives.
+      "apps/landing/next-env.d.ts",
       "apps/web/.vitest-attachments/",
       "**/__screenshots__/",
       // Generated contracts have their own generators and must not be edited.
@@ -74,23 +77,24 @@ export default tseslint.config(
   },
   { languageOptions: { globals: globals.node } },
   {
-    files: ["apps/web/{src,test}/**/*.{ts,tsx}"],
+    files: ["apps/{web,landing}/{src,test}/**/*.{ts,tsx}"],
     languageOptions: { globals: globals.browser },
   },
   {
     ...turbo.configs["flat/recommended"],
-    files: ["apps/web/src/**/*.{ts,tsx}"],
+    files: ["apps/{web,landing}/src/**/*.{ts,tsx}"],
   },
   {
     ...reactHooks.configs.flat.recommended,
+    files: ["apps/{web,landing}/{src,test}/**/*.{ts,tsx}"],
+  },
+  {
+    // These effects intentionally reset local editor state in response to
+    // controlled open/selection props. They are synchronization, not derived
+    // render state; the core hooks and dependency rules remain enabled. The
+    // exception is the web app's — apps/landing has no editors and keeps it.
     files: ["apps/web/{src,test}/**/*.{ts,tsx}"],
-    rules: {
-      ...reactHooks.configs.flat.recommended.rules,
-      // These effects intentionally reset local editor state in response to
-      // controlled open/selection props. They are synchronization, not derived
-      // render state; the core hooks and dependency rules remain enabled.
-      "react-hooks/set-state-in-effect": "off",
-    },
+    rules: { "react-hooks/set-state-in-effect": "off" },
   },
   prettier,
 );

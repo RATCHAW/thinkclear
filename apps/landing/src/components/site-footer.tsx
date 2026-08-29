@@ -1,0 +1,108 @@
+import { GitHubIcon } from "@/components/icons";
+import { Wordmark } from "@/components/wordmark";
+import {
+  APP_URL,
+  GITHUB_DEPLOYMENT_URL,
+  GITHUB_DESIGN_URL,
+  GITHUB_LICENSE_URL,
+  GITHUB_README_URL,
+  GITHUB_URL,
+  MCP_GUIDE_URL,
+  SIGN_UP_URL,
+  SITE_NAME,
+} from "@/lib/site";
+
+const COLUMNS = [
+  {
+    heading: "Product",
+    links: [
+      { href: "#features", label: "Features" },
+      { href: "#mcp", label: "MCP" },
+      { href: "#how-it-works", label: "How it works" },
+      { href: APP_URL, label: "Open the app" },
+    ],
+  },
+  {
+    heading: "Developers",
+    links: [
+      { href: GITHUB_URL, label: "Source on GitHub" },
+      { href: MCP_GUIDE_URL, label: "Connect an agent" },
+      { href: GITHUB_DEPLOYMENT_URL, label: "Self-hosting" },
+      { href: GITHUB_DESIGN_URL, label: "Design system" },
+    ],
+  },
+  {
+    heading: "About",
+    links: [
+      { href: GITHUB_README_URL, label: "What it is" },
+      { href: GITHUB_LICENSE_URL, label: "License (AGPL-3.0)" },
+      { href: `${GITHUB_URL}/issues`, label: "Report an issue" },
+    ],
+  },
+];
+
+export function SiteFooter() {
+  const year = new Date().getFullYear();
+
+  return (
+    <footer className="border-t border-hairline bg-cloud">
+      <div className="mx-auto max-w-page px-5 py-14 sm:px-8">
+        <div className="grid gap-12 md:grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(0,1fr))]">
+          <div>
+            <span className="inline-flex text-ink-navy">
+              <Wordmark />
+            </span>
+            <p className="mt-4 max-w-[260px] text-body-sm text-slate-gray">
+              A mindmap canvas with an assistant that can build it — and an MCP
+              server so your own agent can too.
+            </p>
+            <a
+              href={GITHUB_URL}
+              rel="noreferrer"
+              aria-label={`${SITE_NAME} on GitHub`}
+              className="mt-5 inline-flex size-9 items-center justify-center rounded-input border border-hairline bg-paper text-ink-navy transition-colors duration-150 hover:border-mist-gray"
+            >
+              <GitHubIcon className="size-[18px]" />
+            </a>
+          </div>
+
+          {COLUMNS.map((column) => (
+            <div key={column.heading}>
+              <h2 className="text-caption font-semibold tracking-[0.1em] text-slate-gray uppercase">
+                {column.heading}
+              </h2>
+              <ul className="mt-4 flex flex-col gap-3">
+                {column.links.map((link) => (
+                  <li key={link.label}>
+                    <a
+                      href={link.href}
+                      rel={
+                        link.href.startsWith("http") ? "noreferrer" : undefined
+                      }
+                      className="text-body-sm font-medium text-ink-navy transition-colors duration-150 hover:text-signal-blue"
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-hairline pt-6">
+          <p className="text-caption text-slate-gray">
+            © {year} {SITE_NAME}. Licensed under the GNU AGPL v3.0.
+          </p>
+          <a
+            href={SIGN_UP_URL}
+            rel="noreferrer"
+            className="text-caption font-semibold text-ink-navy transition-colors duration-150 hover:text-signal-blue"
+          >
+            app.thinkclear.xyz
+          </a>
+        </div>
+      </div>
+    </footer>
+  );
+}
