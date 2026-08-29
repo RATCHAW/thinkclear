@@ -208,6 +208,82 @@ conversation adopted mid-send is not reseeded over its own live stream.
 replacement for it, for the same reason. Both editable lists — the library and
 history — share `components/list-row.tsx`.
 
+### Notes are a field on a node, not a resource
+
+Every topic can carry one `note`: **markdown source**, capped at
+`MAX_NOTE_LENGTH`, stored on the node subdocument and therefore saved by the
+same graph PATCH the canvas already debounces. There is no notes endpoint and
+no second fetch — the note rides in the mindmap document the list route
+already returns.
+
+Absent and empty are the same thing, and the rule is *store absent*: the
+canvas' `flush` omits a blank note, `set_topic_note` deletes the key, and every
+reader (the pill's indicator, the outline's `(note)` marker) is a plain truthy
+check. Anything that maps a node must carry `note` through —
+`MindmapToolsService.plainNodes` reads a document and writes the whole array
+back, so a field missing there is a field the next rename erases.
+
+A note is **written as raw markdown and read as rendered markdown**, the way a
+pull request description is:
+
+- `components/note-window.tsx` — `NoteWindows`, a window manager, and the
+  window itself. Each note is a floating window, dragged by its header and
+  resized from a corner grip, clamped to a min and a max and always kept inside
+  the viewport. Its **Edit** tab is a plain `<textarea>` holding markdown
+  source; its **Preview** tab renders that same *live draft*, so the two can
+  never disagree and switching waits on no save.
+
+  **Opening a note never closes another.** Windows cascade down and right of
+  the last one placed so the title bar underneath stays visible and grabbable,
+  and a press anywhere in a window raises it — `onPointerDownCapture`, so it
+  fires ahead of the header's drag and the textarea's focus, including on a
+  press that lands on a button. The manager owns every rect in one map, which
+  is what lets the cascade know where the run is up to; a window whose rect
+  didn't change skips re-rendering while another is dragged.
+- `components/note-preview.tsx` — the hover card on a topic that has a note.
+  Clipped to a fixed height and faded at the cut rather than scrolled: a hover
+  card you have to scroll should have been a window, and Edit is that window.
+- `components/note-markdown.tsx` — Tiptap, used purely as a **renderer**
+  (`editable: false`, no input rules, no Placeholder). It is reached only
+  through `note-markdown-lazy.ts`; that indirection is not ceremony, because
+  two surfaces load it and a second `lazy()` over the same module would be a
+  second component type, so moving between them would rebuild ProseMirror for
+  nothing.
+
+Because the source *is* the document, there is no serializer between what is
+typed and what is stored — so `maxLength` on the textarea is the whole length
+rule (paste included), and a note that is too long to save is unrepresentable
+rather than something to detect. It is also why nothing intercepts a click on a
+link in either read surface: `openOnClick` is off and the editor is never
+editable, so the anchor Tiptap rendered is just an anchor.
+
+The window is rendered inside the canvas' `ReactFlowProvider` but *outside* its
+dissolve wrapper, so it reads and writes the same node data the topics do
+without fading and scaling with the map behind it. Typing settles into node data
+on its own short debounce before the canvas' autosave picks it up, and flushes
+on close, on topic switch, and on unmount. Markdown → document parsing is the
+official `@tiptap/markdown` extension (`contentType: "markdown"`); the
+extension set is deliberately only what markdown can spell, which is why
+Underline is off — there would be no source that produces it.
+
+Three things about the window that look incidental and are not. Its whole
+header is a drag handle, so a press that lands on a control inside it must
+*not* start a gesture — capturing the pointer there retargets the rest of it
+and the button never sees its click. The first window of a run is anchored to
+the topic that was pressed, except when notes were already open on first
+render: those came from the address bar, there is no gesture to feel connected
+to, and the canvas is still fitting the map to the viewport, so that run opens
+centred instead. And **position and the enter/exit animation are on different
+elements** — the outer box carries `translate3d` and never transitions, the
+inner one scales and fades — because sharing a `transform` means the last
+pointer move and the release landing in one commit sends the window gliding to
+where it was dropped, 200ms after the hand let go.
+
+The assistant reaches notes through `read_topic_note` / `set_topic_note`, and
+`read_mindmap`'s outline marks a topic that has one rather than inlining the
+prose — a map where every topic carried a paragraph would push the tree itself
+out of the model's attention.
+
 ### Web state split
 
 - **Server state → React Query.** `apps/web/src/hooks/use-mindmaps.ts` owns all
@@ -220,9 +296,10 @@ history — share `components/list-row.tsx`.
   the same beat and race the live `useChat` messages.
 - **UI state → the URL.** There is no client-side UI store; `window.location`
   is it. `lib/workspace-route.ts` is the whole grammar — `/mindmaps/<id>` for
-  the canvas, `?library`, `?assistant` / `?assistant=history`, and `?chat=<id>`
-  for the conversation the assistant holds whether or not the panel is open —
-  and `hooks/use-workspace-route.ts` binds it to React with
+  the canvas, `?library`, `?assistant` / `?assistant=history`,
+  `?note=<id>,<id>` for the topics whose notes are open (front-most last), and
+  `?chat=<id>` for the conversation the assistant holds whether or not the
+  panel is open — and `hooks/use-workspace-route.ts` binds it to React with
   `useSyncExternalStore` over `popstate`. Nothing mirrors the URL, so Back, a
   reload, and a pasted link all land in the same place, and a caller that can
   only write a URL (the point: assistant-driven navigation) can drive the app.
@@ -231,11 +308,23 @@ history — share `components/list-row.tsx`.
   move that changes two things (open a mindmap, close the library) to one
   history entry. Invariants that *can* be expressed as grammar are: the
   serializer can't write history without the panel, which is what makes
-  "closing the assistant puts history away" impossible to get wrong.
+  "closing the assistant puts history away" impossible to get wrong. `note` is
+  bound the same way to the mindmap it hangs off — the ids name topics of that
+  map — so closing the canvas puts every note away on its own. Notes do *not*
+  fight the assistant for room: they are windows over the canvas, not a second
+  panel, so any number of them coexist with it.
+  Where each window sits and how big it is are deliberately not in the URL:
+  that is transient chrome, not somewhere the user can be. Which window is in
+  *front* is there, because it is the difference between a shared link that
+  restores the arrangement and one that restores a pile — and because raising
+  goes through `replace` rather than `push`, so Back still undoes opening a
+  note rather than looking at one.
 - The ids in the URL are intentionally never reconciled against the server —
   `useActiveMindmap()` resolves the mindmap id against the fetched list, so a
   deleted mindmap's or conversation's id, or a stale link to one, is inert
-  rather than a dangling reference to clean up.
+  rather than a dangling reference to clean up. `note` behaves the same way:
+  a topic deleted out from under its own open note just closes the window,
+  because nothing else keys off that id.
 
 The canvas (`components/mindmap-canvas.tsx`) is keyed by mindmap id so switching
 maps remounts the editor; React Flow state is seeded once from the fetched

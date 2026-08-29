@@ -87,6 +87,7 @@ describe("chatRequestSchema", () => {
       "rename_topic",
       "move_topic",
       "delete_topics",
+      "set_topic_note",
     ]);
   });
 });

@@ -478,6 +478,12 @@
           "y": {
             "type": "number",
             "example": 0
+          },
+          "note": {
+            "type": "string",
+            "example": "Ship the **API** first, then the canvas.",
+            "maxLength": 5000,
+            "description": "The topic's note, as markdown source. Omitted when the topic has no note — an empty string is not stored."
           }
         },
         "required": [

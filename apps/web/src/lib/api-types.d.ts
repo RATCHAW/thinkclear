@@ -143,6 +143,11 @@ export interface components {
             x: number;
             /** @example 0 */
             y: number;
+            /**
+             * @description The topic's note, as markdown source. Omitted when the topic has no note — an empty string is not stored.
+             * @example Ship the **API** first, then the canvas.
+             */
+            note?: string;
         };
         MindmapEdgeDto: {
             /** @description Unique within the mindmap */

@@ -529,6 +529,34 @@ hero bands and full-page banners, and the app has none yet; on the auth card it
 read as noise rather than an architectural gesture. Build it when there is a
 real hero to flank.
 
+### Note prose
+
+A note has two faces, and they are meant to look nothing alike. Its **source**
+is `.note-source` — monospaced `{typography.caption-md}`, which is what says
+"these asterisks are yours" — and its **rendering** is `.note-prose`, the one
+surface in the app where markdown renders as itself and therefore the one place
+that needs the element defaults preflight strips put back. Both live in
+`index.css`, unlayered because they have to win against preflight in
+`@layer base`, and every value is a token:
+
+| Element | Token |
+|---|---|
+| `h1` / `h2` / `h3` | `{typography.display-sm}` / `{typography.display-xs}` / `{typography.caption-bold}` |
+| body, `strong`, `s` | `{typography.body-md}`, weight 600, `{colors.graphite}` |
+| `a` | `{colors.primary}`, underlined |
+| `blockquote` | 2px `{colors.hairline}` left rule, `{colors.charcoal}` |
+| `code` / `pre` | `{colors.cloud}` on `{rounded.sm}` / `{rounded.lg}`, `{typography.caption-md}` |
+| `ul` / `ol` markers | `{colors.steel}` / `{colors.graphite}` |
+
+The heading ladder **skips a step** — 24 → 20 → 14-bold rather than the scale's
+24 → 20 → 18 → 16. Neighbouring steps are close enough that an `h1` and an `h2`
+read as the same thing, and a third level set at `{typography.body-emphasis}`
+is indistinguishable from a bolded sentence. Skipping is what buys three levels
+that are actually three levels without inventing a weight.
+
+Code is also the one place the system leaves its single type family: a snippet
+that isn't monospaced isn't a snippet.
+
 ### Motion
 
 The spec is silent on motion, so the rules come from
@@ -557,6 +585,18 @@ Sheet motion is CSS keyframes rather than transitions because Radix drives exit
 animations off `animationend`. Everywhere else — hover, press, row highlight —
 uses transitions, which retarget mid-flight instead of restarting.
 
+The two note surfaces follow the same rules with one addition each. The **hover
+preview** scales from the trigger rather than from its own middle
+(`--radix-hover-card-content-transform-origin`), because the card belongs to the
+topic under the pointer and growing out of it is what says so; it waits 320ms
+before opening, which is long enough that crossing the canvas doesn't strobe a
+card on every topic it passes. **Note windows** split their motion across two
+elements: the outer box carries position and never transitions, the inner one
+scales and fades for arrival and departure. Sharing one `transform` between the
+two sends a window gliding to where it was dropped a fifth of a second after
+the hand let go — which reads as weight rather than as polish, and is the same
+reason nothing eases toward the pointer while a drag is running.
+
 The canvas is the one place motion is choreographed rather than per-element,
 because it is where the whole page changes at once and neither change is one
 the user's hand is on:
@@ -573,7 +613,7 @@ the user's hand is on:
   rather than transitioned in CSS: React Flow redraws every connector from the
   positions it is handed, so moving the nodes alone detaches the lines.
 
-### Three deviations, recorded
+### Four deviations, recorded
 
 1. **Hover states.** The spec documents only Default and Pressed. A pointer UI
    needs feedback in between, so filled buttons use `hover:bg-*/90` and land on
@@ -587,6 +627,12 @@ the user's hand is on:
    on a fast pointer is easy to miss entirely; the scale is what makes a
    control feel like it heard the click. `button-text-link` opts out — a run of
    text shrinking mid-sentence reads as a glitch, not as feedback.
+4. **Bold inside a note.** `{typography.body-emphasis}` calls run-in bold
+   weight 500, and in catalog prose it is. In a note it isn't: at 16px Manrope,
+   500 against 400 is invisible, and `**` is a control the user just pressed
+   and has to see land. `.note-prose strong` is 600 — still a weight the system
+   ships, and clear of the 700 an `h3` uses. Everywhere outside a note, 500
+   stands.
 
 ### Font
 

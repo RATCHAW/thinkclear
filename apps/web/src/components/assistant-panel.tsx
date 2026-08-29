@@ -470,4 +470,6 @@ const TOOL_LABELS: Record<string, string> = {
   rename_topic: "Renaming a topic",
   move_topic: "Moving a topic",
   delete_topics: "Deleting topics",
+  read_topic_note: "Reading a note",
+  set_topic_note: "Writing a note",
 };

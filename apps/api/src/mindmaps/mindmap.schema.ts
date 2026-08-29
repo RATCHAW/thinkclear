@@ -16,6 +16,14 @@ export class MindmapNode {
 
   @Prop({ type: Number, required: true })
   y: number;
+
+  /**
+   * Markdown source for the topic's note. Optional and never stored empty —
+   * writers omit the key — so `node.note` being falsy is the whole "has no
+   * note" check, on the server and on the canvas alike.
+   */
+  @Prop({ type: String })
+  note?: string;
 }
 
 @Schema({ _id: false })

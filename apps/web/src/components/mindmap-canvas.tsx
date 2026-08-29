@@ -30,19 +30,24 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { animate, useReducedMotion } from "motion/react";
-import { Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Loader2, NotebookPen, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
   buildTree,
   canConnect,
   descendantsOf,
   ROOT_NODE_ID,
 } from "@mindmap/shared";
+import { prefetchNoteMarkdown } from "@/components/note-markdown-lazy";
+import { NotePreview } from "@/components/note-preview";
+import { NoteWindows } from "@/components/note-window";
+import { HoverCard, HoverCardTrigger } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
 import {
   useActiveMindmap,
   useSaveMindmapGraph,
   type Mindmap,
 } from "@/hooks/use-mindmaps";
+import { openNote } from "@/hooks/use-workspace-route";
 
 /** How long the canvas stays quiet after the last change before persisting. */
 const AUTOSAVE_MS = 800;
@@ -57,6 +62,12 @@ const TOPIC_STAGGER_MS = 45;
 const TOPIC_STAGGER_STEPS = 5;
 /** How long the viewport takes to reframe around an assistant edit. */
 const REFRAME_MS = 300;
+/**
+ * How long the pointer has to rest on a topic before its note previews.
+ * Long enough that crossing the canvas doesn't strobe cards on every topic it
+ * passes over, short enough to feel like the answer to a question you asked.
+ */
+const HOVER_NOTE_DELAY_MS = 320;
 /** `--ease-in-out-strong`: movement across the screen, per DESIGN.md › Motion. */
 const EASE_IN_OUT_STRONG = [0.77, 0, 0.175, 1] as const;
 
@@ -66,9 +77,15 @@ const EASE_IN_OUT_STRONG = [0.77, 0, 0.175, 1] as const;
 const EDGE_COLOR = "#2b78e4";
 const EDGE_STYLE = { stroke: EDGE_COLOR, strokeWidth: 2 };
 
-type TopicNode = Node<
+export type TopicNode = Node<
   {
     title: string;
+    /**
+     * Markdown source for the topic's note, previewed on hover and edited in
+     * `NoteWindow`. Empty and absent mean the same thing, so every reader
+     * tests it for truth rather than for presence.
+     */
+    note?: string;
     startEditing?: boolean;
     /**
      * Set on topics an external edit added. They render invisible while
@@ -108,28 +125,31 @@ export function MindmapCanvas() {
   }, [activeMindmap, shown]);
   const leaving = Boolean(shown) && activeMindmap?._id !== shown?._id;
 
-  return (
-    // Keyed by id so switching mindmaps remounts the editor — its React Flow
-    // state is initialized once from the fetched document and then owned
-    // locally, which is what keeps background refetches from clobbering an
-    // edit in progress — and so the fade-in replays for the arriving map.
-    <div
-      key={shown?._id ?? "empty"}
-      className={cn(
-        "h-full w-full",
-        leaving ? "animate-canvas-out" : "animate-canvas-in",
-      )}
-    >
-      {shown ? (
-        <ReactFlowProvider key={shown._id}>
-          <MindmapEditor mindmap={shown} />
-        </ReactFlowProvider>
-      ) : (
-        // The idle backdrop behind the "No mindmap open" overlay.
-        <ReactFlow nodes={[]} edges={[]}>
-          <Background variant={BackgroundVariant.Dots} gap={24} />
-        </ReactFlow>
-      )}
+  // Keyed by id so switching mindmaps remounts the editor — its React Flow
+  // state is initialized once from the fetched document and then owned
+  // locally, which is what keeps background refetches from clobbering an edit
+  // in progress — and so the fade-in replays for the arriving map.
+  return shown ? (
+    <ReactFlowProvider key={shown._id}>
+      <div
+        className={cn(
+          "h-full w-full",
+          leaving ? "animate-canvas-out" : "animate-canvas-in",
+        )}
+      >
+        <MindmapEditor mindmap={shown} />
+      </div>
+      {/* Inside the provider, so they read and write the same node data the
+          topics do; outside the dissolving wrapper, because a window has no
+          business fading and scaling along with the map behind it. */}
+      <NoteWindows />
+    </ReactFlowProvider>
+  ) : (
+    // The idle backdrop behind the "No mindmap open" overlay.
+    <div key="empty" className="animate-canvas-in h-full w-full">
+      <ReactFlow nodes={[]} edges={[]}>
+        <Background variant={BackgroundVariant.Dots} gap={24} />
+      </ReactFlow>
     </div>
   );
 }
@@ -140,6 +160,10 @@ const edgeTypes = { topic: TopicEdgeView };
 function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
   const { screenToFlowPosition, fitView } = useReactFlow();
   const reduceMotion = Boolean(useReducedMotion());
+  // Warmed here rather than on first hover: a preview that has to fetch
+  // ProseMirror before it can render is a preview that arrives after the
+  // pointer has moved on.
+  useEffect(prefetchNoteMarkdown, []);
   // Lazily, because these walk the whole document and are read exactly once:
   // `useNodesState` keeps its argument only on the first render, but it is
   // still *evaluated* on every one — and a relayout renders this component
@@ -195,6 +219,10 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
           title: node.data.title,
           x: settled?.get(node.id)?.x ?? node.position.x,
           y: settled?.get(node.id)?.y ?? node.position.y,
+          // A cleared note is sent as no note rather than as an empty string,
+          // which is what keeps "has a note" one truthy check everywhere —
+          // here, in the pill's indicator, and in the assistant's outline.
+          ...(node.data.note ? { note: node.data.note } : {}),
         })),
         edges: edges.map(({ id, source, target }) => ({ id, source, target })),
         ...(title ? { title } : {}),
@@ -544,6 +572,11 @@ function TopicNodeView({ id, data, selected }: NodeProps<TopicNode>) {
   // 0 = idle; otherwise the number of topics the pending delete would take,
   // shown on the trash button until a second click confirms.
   const [confirmCount, setConfirmCount] = useState(0);
+  // Controlled rather than left to Radix, because pressing Edit has to put the
+  // card away: the pointer is still resting on it at that moment, so on its
+  // own it would stay open behind the window it just opened, showing the same
+  // note twice.
+  const [previewOpen, setPreviewOpen] = useState(false);
   const isRoot = id === ROOT_NODE_ID;
 
   // The toolbar's rename button (and a fresh mint) request editing by
@@ -615,97 +648,148 @@ function TopicNodeView({ id, data, selected }: NodeProps<TopicNode>) {
   }
 
   return (
-    <div
-      onDoubleClick={() => {
-        setDraft(data.title);
-        setEditing(true);
-      }}
-      // A topic an external edit added stays invisible until the tree has
-      // made room for it, then fades in on its own beat.
-      style={
-        data.enterDelay ? { animationDelay: `${data.enterDelay}ms` } : undefined
-      }
-      className={cn(
-        "rounded-md border-2 border-ink-deep px-4 py-2 text-ink-deep",
-        isRoot
-          ? "bg-[#ffe600] text-body-emphasis"
-          : "bg-[#ffe599] text-caption-bold",
-        selected && "shadow-[0_0_0_3px_#c9e0fc]",
-        data.enter === "pending" && "opacity-0",
-        data.enter === "in" && "animate-topic-in",
-      )}
+    // The card is always mounted and only its *content* is conditional, so a
+    // topic gaining or losing a note doesn't restructure the tree around the
+    // pill and take its title-edit state down with it. With nothing to show,
+    // opening resolves to nothing on screen.
+    <HoverCard
+      open={previewOpen}
+      onOpenChange={setPreviewOpen}
+      openDelay={HOVER_NOTE_DELAY_MS}
+      closeDelay={120}
     >
-      {editing ? (
-        <input
-          ref={focusInput}
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onBlur={commit}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") commit();
-            if (event.key === "Escape") cancel();
+      <HoverCardTrigger asChild>
+        <div
+          onDoubleClick={() => {
+            setDraft(data.title);
+            setEditing(true);
           }}
-          className="nodrag w-36 bg-transparent outline-none"
-        />
-      ) : (
-        <span className="block max-w-56 truncate">{data.title}</span>
-      )}
-      {/* Loose connection mode makes both dots interchangeable grab points,
+          // A topic an external edit added stays invisible until the tree has
+          // made room for it, then fades in on its own beat.
+          style={
+            data.enterDelay
+              ? { animationDelay: `${data.enterDelay}ms` }
+              : undefined
+          }
+          className={cn(
+            "rounded-md border-2 border-ink-deep px-4 py-2 text-ink-deep",
+            isRoot
+              ? "bg-[#ffe600] text-body-emphasis"
+              : "bg-[#ffe599] text-caption-bold",
+            selected && "shadow-[0_0_0_3px_#c9e0fc]",
+            data.enter === "pending" && "opacity-0",
+            data.enter === "in" && "animate-topic-in",
+          )}
+        >
+          {editing ? (
+            <input
+              ref={focusInput}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onBlur={commit}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") commit();
+                if (event.key === "Escape") cancel();
+              }}
+              className="nodrag w-36 bg-transparent outline-none"
+            />
+          ) : (
+            <span className="flex items-center gap-1.5">
+              <span className="max-w-56 truncate">{data.title}</span>
+              {/* A topic with a note says so on the pill. It widens the topic,
+              which the tree layout absorbs on its next pass — so writing the
+              first note on a branch tidies the branch around it. */}
+              {data.note && (
+                <>
+                  <NotebookPen className="size-3 shrink-0" />
+                  <span className="sr-only">Has a note</span>
+                </>
+              )}
+            </span>
+          )}
+          {/* Loose connection mode makes both dots interchangeable grab points,
           so branches can grow from either end of a topic. */}
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="!size-2.5 !border-none !bg-[#2b78e4]"
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="!size-2.5 !border-none !bg-[#2b78e4]"
-      />
+          <Handle
+            type="target"
+            position={Position.Top}
+            className="!size-2.5 !border-none !bg-[#2b78e4]"
+          />
+          <Handle
+            type="source"
+            position={Position.Bottom}
+            className="!size-2.5 !border-none !bg-[#2b78e4]"
+          />
 
-      <NodeToolbar
-        isVisible={selected && !editing}
-        position={Position.Top}
-        offset={12}
-        className="flex gap-1"
-      >
-        <button
-          type="button"
-          title="Add branch"
-          aria-label="Add branch"
-          onClick={addBranch}
-          className={CANVAS_ACTION_BUTTON}
-        >
-          <Plus className="size-3.5" />
-        </button>
-        <button
-          type="button"
-          title="Rename"
-          aria-label="Rename"
-          onClick={() => updateNodeData(id, { startEditing: true })}
-          className={CANVAS_ACTION_BUTTON}
-        >
-          <Pencil className="size-3" />
-        </button>
-        {!isRoot && (
-          <button
-            type="button"
-            title={confirmCount ? undefined : "Delete"}
-            aria-label="Delete"
-            onClick={remove}
-            className={cn(CANVAS_ACTION_BUTTON, "text-red-600")}
+          <NodeToolbar
+            isVisible={selected && !editing}
+            position={Position.Top}
+            offset={12}
+            className="flex gap-1"
           >
-            {confirmCount ? (
-              <span className="whitespace-nowrap px-1 text-caption-bold">
-                Delete {confirmCount} topics?
-              </span>
-            ) : (
-              <Trash2 className="size-3.5" />
+            <button
+              type="button"
+              title="Add branch"
+              aria-label="Add branch"
+              onClick={addBranch}
+              className={CANVAS_ACTION_BUTTON}
+            >
+              <Plus className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              title={data.note ? "Edit note" : "Add note"}
+              aria-label={data.note ? "Edit note" : "Add note"}
+              onClick={() => openNote(id)}
+              className={CANVAS_ACTION_BUTTON}
+            >
+              <NotebookPen className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              title="Rename"
+              aria-label="Rename"
+              onClick={() => updateNodeData(id, { startEditing: true })}
+              className={CANVAS_ACTION_BUTTON}
+            >
+              <Pencil className="size-3" />
+            </button>
+            {!isRoot && (
+              <button
+                type="button"
+                title={confirmCount ? undefined : "Delete"}
+                aria-label="Delete"
+                onClick={remove}
+                className={cn(CANVAS_ACTION_BUTTON, "text-red-600")}
+              >
+                {confirmCount ? (
+                  <span className="whitespace-nowrap px-1 text-caption-bold">
+                    Delete {confirmCount} topics?
+                  </span>
+                ) : (
+                  <Trash2 className="size-3.5" />
+                )}
+              </button>
             )}
-          </button>
-        )}
-      </NodeToolbar>
-    </div>
+          </NodeToolbar>
+        </div>
+      </HoverCardTrigger>
+
+      {/* Only a topic with something to show gets a card. Editing the title
+          suppresses it — a preview of the note is not what anyone hovering
+          their own cursor over a rename field is asking for. Having the note
+          already open does *not*: with several windows up, the one you want
+          may be buried, and its topic is the shortest way back to it. */}
+      {data.note && !editing && (
+        <NotePreview
+          note={data.note}
+          title={data.title}
+          onEdit={() => {
+            setPreviewOpen(false);
+            openNote(id);
+          }}
+        />
+      )}
+    </HoverCard>
   );
 }
 
@@ -770,7 +854,7 @@ function toFlowNodes(mindmap: Mindmap): TopicNode[] {
     id: node.id,
     type: "topic" as const,
     position: { x: node.x, y: node.y },
-    data: { title: node.title },
+    data: { title: node.title, note: node.note },
     deletable: node.id !== ROOT_NODE_ID,
   }));
 }

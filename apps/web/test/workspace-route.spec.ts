@@ -11,6 +11,7 @@ const closed: WorkspaceRoute = {
   libraryOpen: false,
   assistantOpen: false,
   historyOpen: false,
+  noteNodeIds: [],
 };
 
 describe("workspace route grammar", () => {
@@ -55,13 +56,53 @@ describe("workspace route grammar", () => {
       libraryOpen: true,
       assistantOpen: true,
       historyOpen: true,
+      noteNodeIds: ["root"],
     };
 
     const url = workspaceRouteUrl(route);
     expect(url).toBe(
-      "/mindmaps/mindmap-1?library&assistant=history&chat=conversation-1",
+      "/mindmaps/mindmap-1?library&assistant=history&note=root&chat=conversation-1",
     );
     expect(parseWorkspaceRoute(url)).toEqual(route);
+  });
+
+  it("addresses every open note, front-most last", () => {
+    const route: WorkspaceRoute = {
+      ...closed,
+      mindmapId: "mindmap-1",
+      noteNodeIds: ["root", "backend", "db"],
+    };
+
+    // Comma-separated because these URLs are meant to be read: the list says
+    // "three notes, db in front" at a glance.
+    const url = workspaceRouteUrl(route);
+    expect(url).toBe("/mindmaps/mindmap-1?note=root,backend,db");
+    expect(parseWorkspaceRoute(url)).toEqual(route);
+  });
+
+  it("collapses a topic asked for twice into one window", () => {
+    expect(
+      parseWorkspaceRoute("/mindmaps/mindmap-1?note=root,backend,root")
+        .noteNodeIds,
+    ).toEqual(["root", "backend"]);
+  });
+
+  it("cannot say that a note is open with no mindmap under it", () => {
+    // A note id names a topic of the open map, so the grammar refuses to
+    // write one without the map — which is what makes closing the canvas
+    // close every note without anything having to remember to.
+    const url = workspaceRouteUrl({ ...closed, noteNodeIds: ["root"] });
+
+    expect(url).toBe("/");
+    expect(parseWorkspaceRoute("/?note=root").noteNodeIds).toEqual([]);
+  });
+
+  it("lets notes and the assistant be open together", () => {
+    // A note is a window over the canvas rather than a second panel beside it,
+    // so nothing has to close to make room for it.
+    expect(
+      parseWorkspaceRoute("/mindmaps/mindmap-1?assistant&note=root,backend"),
+    ).toMatchObject({ assistantOpen: true, noteNodeIds: ["root", "backend"] });
   });
 
   it("cannot say that history is showing over a closed assistant", () => {
@@ -81,7 +122,14 @@ describe("workspace route grammar", () => {
   });
 
   it("survives ids that need escaping", () => {
-    const route = { ...closed, mindmapId: "a/b?c", conversationId: "x&y" };
+    const route = {
+      ...closed,
+      mindmapId: "a/b?c",
+      conversationId: "x&y",
+      // Escaped before joining, so the comma inside a topic id can't split it
+      // into two windows on the way back.
+      noteNodeIds: ["one,two", "three"],
+    };
 
     expect(parseWorkspaceRoute(workspaceRouteUrl(route))).toEqual(route);
   });
