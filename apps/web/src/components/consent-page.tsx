@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Wordmark } from "@/components/wordmark";
 import { authClient } from "@/lib/auth-client";
 import { leaveApp } from "@/lib/navigation";
 import type { OAuthAuthorization } from "@/lib/oauth-route";
@@ -64,9 +65,11 @@ export function ConsentPage({
     <div className="surface-cloud flex min-h-svh items-center justify-center px-4 py-20">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <span className="text-caption-bold uppercase text-graphite">
-            ThinkClear
-          </span>
+          {/* The mark matters more here than anywhere else in the app. A
+              person arrives on this screen from someone else's agent client
+              and has to decide whether to trust it; the first thing the page
+              owes them is whose grant they are about to sign. */}
+          <Wordmark />
           <CardTitle className="text-display-md">
             Allow {clientName ?? "this app"} to use your mindmaps?
           </CardTitle>

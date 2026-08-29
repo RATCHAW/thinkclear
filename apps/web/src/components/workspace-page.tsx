@@ -4,6 +4,7 @@ import { AccountDialog } from "@/components/account-dialog";
 import { Button } from "@/components/ui/button";
 import { MindmapCanvas } from "@/components/mindmap-canvas";
 import { MindmapLibrary } from "@/components/mindmap-library";
+import { LogoMark } from "@/components/wordmark";
 import { useActiveMindmap } from "@/hooks/use-mindmaps";
 import {
   setAssistantOpen,
@@ -76,7 +77,12 @@ export function WorkspacePage({
       {!activeMindmap && (
         <div className="animate-fade-in pointer-events-none absolute inset-0 flex items-center justify-center p-4">
           <div className="pointer-events-auto max-w-sm text-center">
-            <h1 className="text-display-sm">No mindmap open</h1>
+            {/* The mark alone, in {colors.steel}: an empty canvas is the one
+                moment the app has nothing to show, and the glyph composes it
+                without claiming to be content. No wordmark — you already know
+                what you signed into. */}
+            <LogoMark className="mx-auto size-10 text-steel" />
+            <h1 className="mt-5 text-display-sm">No mindmap open</h1>
             <p className="mt-2 text-body-md text-graphite">
               Pick one from your library, or start a new one.
             </p>
