@@ -99,6 +99,14 @@ running" — and a deploy is gated on the tests rather than on a push landing.
 | `AI_CHAT_MODEL` | `deepseek/deepseek-v4-flash` | vendor/model |
 | `MCP_RESOURCE_URL` | *unset* | defaults to `$APP_URL/api/mcp`, which is what clients connect to |
 | `LLM_GATEWAY_URL` | *unset* | only for a self-hosted gateway |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | from the Google console | both or neither — see below |
+
+Google sign-in is off unless **both** halves are set, and the account screen
+asks `GET /api/me` which providers came back rather than assuming: half a
+credential produces a deployment with no Google button, not one that fails on
+press. The authorized redirect URI in the Google console is
+`$APP_URL/api/auth/callback/google` — the *app's* origin again, since that is
+where `/api` is proxied from.
 
 `APP_URL` is the mistake worth naming twice: point it at `api.thinkclear.xyz` or
 at the landing's `thinkclear.xyz` and everything works until someone authorizes

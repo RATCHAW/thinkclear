@@ -505,10 +505,23 @@
         "properties": {
           "user": {
             "$ref": "#/components/schemas/MeUserDto"
+          },
+          "socialProviders": {
+            "type": "array",
+            "example": [
+              "google"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "google"
+              ]
+            }
           }
         },
         "required": [
-          "user"
+          "user",
+          "socialProviders"
         ]
       },
       "MindmapNodeDto": {

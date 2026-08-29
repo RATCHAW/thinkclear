@@ -11,6 +11,7 @@ const closed: WorkspaceRoute = {
   libraryOpen: false,
   assistantOpen: false,
   historyOpen: false,
+  accountSection: null,
   noteNodeIds: [],
 };
 
@@ -56,14 +57,38 @@ describe("workspace route grammar", () => {
       libraryOpen: true,
       assistantOpen: true,
       historyOpen: true,
+      accountSection: "mcp",
       noteNodeIds: ["root"],
     };
 
     const url = workspaceRouteUrl(route);
     expect(url).toBe(
-      "/mindmaps/mindmap-1?library&assistant=history&note=root&chat=conversation-1",
+      "/mindmaps/mindmap-1?library&assistant=history&account=mcp&note=root&chat=conversation-1",
     );
     expect(parseWorkspaceRoute(url)).toEqual(route);
+  });
+
+  it("names an account section only when it is not the default one", () => {
+    // `?account` is "settings, wherever they open" — writing the default
+    // section into the URL would encode a choice nobody made, and make the
+    // commonest link the long one.
+    expect(workspaceRouteUrl({ ...closed, accountSection: "profile" })).toBe(
+      "/?account",
+    );
+    expect(workspaceRouteUrl({ ...closed, accountSection: "mcp" })).toBe(
+      "/?account=mcp",
+    );
+    expect(parseWorkspaceRoute("/?account").accountSection).toBe("profile");
+    expect(parseWorkspaceRoute("/?account=mcp").accountSection).toBe("mcp");
+  });
+
+  it("opens settings on the default section when the URL names one it does not have", () => {
+    // An older link, or a typo. The parameter still says the user is in
+    // settings, which is the part worth honouring.
+    expect(parseWorkspaceRoute("/?account=billing").accountSection).toBe(
+      "profile",
+    );
+    expect(parseWorkspaceRoute("/").accountSection).toBeNull();
   });
 
   it("addresses every open note, front-most last", () => {

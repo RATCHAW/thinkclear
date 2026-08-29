@@ -7,16 +7,60 @@ import { WorkspacePage } from "@/components/workspace-page";
 import { currentUrl, visit } from "./browser-url";
 import { createFakeApi, mindmapFixture } from "./fake-api";
 
-const auth = vi.hoisted(() => ({ signOut: vi.fn() }));
+const auth = vi.hoisted(() => ({
+  signOut: vi.fn(),
+  listAccounts: vi.fn(),
+  linkSocial: vi.fn(),
+  unlinkAccount: vi.fn(),
+  getConsents: vi.fn(),
+  deleteConsent: vi.fn(),
+  publicClient: vi.fn(),
+}));
+const leaveApp = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth-client", () => ({
   signOut: auth.signOut,
+  authClient: {
+    listAccounts: auth.listAccounts,
+    linkSocial: auth.linkSocial,
+    unlinkAccount: auth.unlinkAccount,
+    oauth2: {
+      getConsents: auth.getConsents,
+      deleteConsent: auth.deleteConsent,
+      publicClient: auth.publicClient,
+    },
+  },
 }));
+// Linking a provider ends in a real navigation to Google. Mocking the one
+// function that performs it is what lets the test watch where the app decided
+// to send the user without the harness being navigated out from under it.
+vi.mock("@/lib/navigation", () => ({ leaveApp }));
 
 describe("mindmap workspace journey", () => {
   beforeEach(() => {
-    auth.signOut.mockReset();
+    vi.clearAllMocks();
     auth.signOut.mockResolvedValue({ data: {}, error: null });
+    auth.listAccounts.mockResolvedValue({
+      data: [{ id: "account-1", providerId: "credential" }],
+      error: null,
+    });
+    auth.linkSocial.mockResolvedValue({
+      data: { url: GOOGLE_CONSENT_URL, redirect: false },
+      error: null,
+    });
+    auth.unlinkAccount.mockResolvedValue({
+      data: { status: true },
+      error: null,
+    });
+    auth.getConsents.mockResolvedValue({ data: [], error: null });
+    auth.deleteConsent.mockResolvedValue({
+      data: { status: true },
+      error: null,
+    });
+    auth.publicClient.mockResolvedValue({
+      data: { client_name: "Claude Code" },
+      error: null,
+    });
     visit("/");
   });
 
@@ -266,7 +310,108 @@ describe("mindmap workspace journey", () => {
       .element(window_.getByRole("textbox", { name: "Note" }))
       .toHaveValue("# Ship it\n\nAnd then **iterate**.");
   });
+
+  test("moves from the library into the account, and connects a provider", async () => {
+    const api = createFakeApi();
+    vi.stubGlobal("fetch", vi.fn(api.fetch));
+    const screen = await render(<WorkspacePage user={user} />, {
+      wrapper: testProviders(),
+    });
+
+    await screen.getByRole("button", { name: "Mindmaps" }).click();
+    await screen.getByRole("button", { name: /ada@example.com/ }).click();
+
+    // Opening the account is a move out of the library rather than a layer
+    // over it, and it is somewhere the address bar can be.
+    await expect.poll(currentUrl).toBe("/?account");
+    // The sheet takes its 200ms exit on the way out, so this is the state it
+    // settles into rather than the frame after the press.
+    await expect
+      .element(screen.getByPlaceholder("New mindmap"))
+      .not.toBeInTheDocument();
+    await expect
+      .element(screen.getByText("Ada", { exact: true }))
+      .toBeVisible();
+
+    await screen.getByRole("button", { name: "Sign-in" }).click();
+    await expect.poll(currentUrl).toBe("/?account=sign-in");
+
+    // Only what the server said it holds credentials for is offered.
+    await expect.element(screen.getByText("Email and password")).toBeVisible();
+    await expect.element(screen.getByText("Google")).toBeVisible();
+
+    await screen.getByRole("button", { name: "Connect", exact: true }).click();
+    await expect
+      .poll(() => leaveApp.mock.calls.at(-1)?.[0])
+      .toBe(GOOGLE_CONSENT_URL);
+    // Sections being addressable is what makes coming back free: the callback
+    // is this exact screen, so there is no state to save and restore.
+    expect(auth.linkSocial.mock.calls.at(-1)?.[0]).toMatchObject({
+      provider: "google",
+      callbackURL: "/?account=sign-in",
+    });
+
+    await screen.getByRole("button", { name: "Profile" }).click();
+    await screen.getByRole("button", { name: "Sign out" }).click();
+    await expect.poll(() => auth.signOut.mock.calls.length).toBe(1);
+  });
+
+  test("hands an agent client the endpoint, and takes the grant back", async () => {
+    const api = createFakeApi();
+    auth.getConsents.mockResolvedValue({
+      data: [
+        {
+          id: "consent-1",
+          clientId: "mcp-client-9",
+          scopes: ["mindmaps:read", "mindmaps:write"],
+        },
+      ],
+      error: null,
+    });
+    vi.stubGlobal("fetch", vi.fn(api.fetch));
+    // Straight to the section: "here is how you connect Claude Code" is a link
+    // somebody can be sent.
+    visit("/?account=mcp");
+    const screen = await render(<WorkspacePage user={user} />, {
+      wrapper: testProviders(),
+    });
+
+    const endpoint = `${window.location.origin}/api/mcp`;
+    const panel = screen.getByRole("dialog");
+    await expect
+      .element(panel.getByText(endpoint, { exact: true }))
+      .toBeVisible();
+    await expect
+      .element(
+        panel.getByText(
+          `claude mcp add --transport http thinkclear ${endpoint}`,
+        ),
+      )
+      .toBeVisible();
+
+    // Every client is the same two moves — name the URL, then sign in — which
+    // is what dynamic registration buys and why no step asks for a token.
+    await panel.getByRole("button", { name: "Codex" }).click();
+    await expect
+      .element(panel.getByText(`codex mcp add thinkclear --url ${endpoint}`))
+      .toBeVisible();
+
+    // The consent screen promises this list exists, named by what the client
+    // registered itself as rather than by its id.
+    await expect
+      .element(panel.getByText("Can read and change your mindmaps"))
+      .toBeVisible();
+    await panel
+      .getByRole("button", { name: "Revoke access for Claude Code" })
+      .click();
+    await panel.getByRole("button", { name: "Revoke", exact: true }).click();
+    await expect
+      .poll(() => auth.deleteConsent.mock.calls.at(-1)?.[0])
+      .toEqual({ id: "consent-1" });
+  });
 });
+
+const GOOGLE_CONSENT_URL = "https://accounts.google.com/o/oauth2/v2/auth?x=1";
 
 /** Two topics that both carry notes, for the multi-window journeys. */
 function twoNotedMindmap() {

@@ -7,7 +7,10 @@ import { WorkspacePage } from "@/components/workspace-page";
 import { currentUrl, visit } from "./browser-url";
 import { conversationFixture, createFakeApi } from "./fake-api";
 
-vi.mock("@/lib/auth-client", () => ({ signOut: vi.fn() }));
+// `authClient` is what the account screen reads sign-in methods and connected
+// agents through. This journey never opens it, so an empty stand-in is enough
+// to satisfy the import.
+vi.mock("@/lib/auth-client", () => ({ signOut: vi.fn(), authClient: {} }));
 
 describe("assistant journey", () => {
   beforeEach(() => {

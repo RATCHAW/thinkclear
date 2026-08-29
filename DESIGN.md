@@ -522,6 +522,7 @@ break the white canvas.
 | `text-input`, `text-input-focused` | `<Input>` |
 | `badge-pill-ink` / `badge-pill-outline` / `badge-sale-coral` | `<Badge variant="ink" \| "outline" \| "sale">` |
 | Elevation level 3 "Floating Modal" — the `mobile-nav sheet` row | `<Sheet>` (`{colors.paper}` on `{rounded.xl}`, Floating shadow, inset 8px from the viewport) |
+| Elevation level 3 "Floating Modal", centred | `<Dialog>` (the same slab, minus the edge it is anchored to) |
 | `chevron-decoration` | Not implemented — see below |
 
 `chevron-decoration` is spec'd but deliberately unbuilt. The spec reserves it for
@@ -582,8 +583,19 @@ Four rules hold everywhere:
   component has to know about it.
 
 Sheet motion is CSS keyframes rather than transitions because Radix drives exit
-animations off `animationend`. Everywhere else — hover, press, row highlight —
-uses transitions, which retarget mid-flight instead of restarting.
+animations off `animationend`. `<Dialog>` follows it — 220ms in, 160ms out — but
+scales from its own middle rather than from a trigger, because unlike a popover
+a modal is not anchored to the control that opened it and growing it out of one
+corner would point at nothing. Centring and the entrance use *different CSS
+properties* (`translate` for the first, `transform` for the second), which is
+what stops the keyframe from having to restate the offset. Everywhere else —
+hover, press, row highlight — uses transitions, which retarget mid-flight
+instead of restarting.
+
+Both `<Dialog>` and `<Sheet>` take focus onto the panel rather than onto the
+first control inside. They are places, not forms: Radix's default puts a focus
+ring on a tab nobody pressed, which on a settings dialog reads as a second
+selection fighting the current one.
 
 The two note surfaces follow the same rules with one addition each. The **hover
 preview** scales from the trigger rather than from its own middle

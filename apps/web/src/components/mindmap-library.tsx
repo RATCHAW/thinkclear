@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { Loader2, LogOut, PanelLeft, Plus, RotateCw } from "lucide-react";
+import {
+  ChevronRight,
+  Loader2,
+  PanelLeft,
+  Plus,
+  RotateCw,
+  UserRound,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,11 +30,11 @@ import {
   useUpdateMindmap,
 } from "@/hooks/use-mindmaps";
 import {
+  openAccount,
   openMindmap,
   setLibraryOpen,
   useWorkspaceRoute,
 } from "@/hooks/use-workspace-route";
-import { signOut } from "@/lib/auth-client";
 
 /**
  * The mindmap library: a floating sheet hung off a trigger in the top-left of
@@ -206,33 +213,24 @@ function LibraryPanel({
         )}
       </SheetBody>
 
-      <SheetFooter className="flex items-center justify-between gap-3">
-        <p className="min-w-0 truncate text-caption-md text-graphite">
-          {user.email}
-        </p>
-        <SignOutButton />
+      {/* The footer is the way to the account rather than a place to do
+          anything: signing out, connecting Google, and connecting an agent are
+          all one press away, and none of them belongs in a panel about
+          mindmaps. Opening it closes this sheet — it is a move, not a layer. */}
+      <SheetFooter className="p-2">
+        <button
+          type="button"
+          onClick={() => openAccount()}
+          className="flex h-11 w-full items-center gap-2 rounded-lg px-3 text-left outline-none transition-colors duration-[160ms] ease-out-strong hover:bg-cloud focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        >
+          <UserRound className="size-4 shrink-0 text-graphite" />
+          <span className="min-w-0 flex-1 truncate text-caption-md text-charcoal">
+            {user.email}
+          </span>
+          <ChevronRight className="size-4 shrink-0 text-graphite" />
+        </button>
       </SheetFooter>
     </SheetContent>
-  );
-}
-
-function SignOutButton() {
-  const [signingOut, setSigningOut] = useState(false);
-
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      disabled={signingOut}
-      onClick={async () => {
-        setSigningOut(true);
-        await signOut();
-        setSigningOut(false);
-      }}
-    >
-      {signingOut ? <Loader2 className="animate-spin" /> : <LogOut />}
-      Sign out
-    </Button>
   );
 }
 
