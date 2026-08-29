@@ -52,6 +52,22 @@ export interface paths {
         patch: operations["MindmapsController_update"];
         trace?: never;
     };
+    "/api/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ChatController_chat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -108,6 +124,16 @@ export interface components {
             nodes?: components["schemas"]["MindmapNodeDto"][];
             /** @description Replaces every edge. Ids must be unique, both endpoints must be nodes of this mindmap, and the result must stay a tree: no self-connections, no node pair connected twice, and no loops. Disconnected branches are allowed. */
             edges?: components["schemas"]["MindmapEdgeDto"][];
+        };
+        ChatRequestDto: {
+            /** @description Chat session id from the AI SDK */
+            id?: string;
+            /** @description Id of the mindmap currently open in the canvas, used as conversation context */
+            mindmapId?: string | null;
+            /** @description AI SDK UIMessage array. See https://ai-sdk.dev — the shape is owned by the `ai` package and streamed back as a UI message event stream. */
+            messages: {
+                [key: string]: unknown;
+            }[];
         };
     };
     responses: never;
@@ -269,6 +295,44 @@ export interface operations {
                 content?: never;
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ChatController_chat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatRequestDto"];
+            };
+        };
+        responses: {
+            /** @description AI SDK UI message event stream (SSE). Assistant text and mindmap tool calls arrive as streamed message parts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Body failed validation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description ANTHROPIC_API_KEY is not configured on the server */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

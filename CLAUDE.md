@@ -98,6 +98,39 @@ and a nonexistent one are both a 404. Invalid ObjectIds short-circuit there too
 (otherwise Mongoose's CastError becomes a 500). Follow that shape for new
 resources — no service method should read a document by `_id` alone.
 
+### AI chat edits mindmaps server-side
+
+`POST /api/chat` (apps/api/src/ai) streams an AI SDK UI-message response from
+`streamText` with tools. The tools live in `MindmapToolsService` and call
+`MindmapsService`, so ownership scoping and `findMindmapGraphIssues` apply to
+AI writes exactly as to HTTP ones — this is deliberate so a future MCP server
+can reuse the same service without the chat transport. Tool errors are
+returned to the model as data (`{ error, issues }`), not thrown, so it can
+repair a bad edit in one round trip. Models are reached through LLM Gateway
+(`createGateway` from the `ai` package, same wiring as vivace's coach):
+`LLM_GATEWAY_API_KEY` in `apps/api/.env` is required (503 without it), the
+model comes from `AI_CHAT_MODEL` written vendor/model (default
+`deepseek/deepseek-v4-flash`), and `LLM_GATEWAY_URL` overrides the endpoint
+for a self-hosted gateway.
+
+The chat route is documented in Swagger but the web client calls it through
+the AI SDK's `DefaultChatTransport` (plain fetch) — an SSE stream can't ride
+the generated openapi-fetch client. `MUTATING_CHAT_TOOLS` in
+`packages/shared/src/chat.ts` is the web ↔ api contract for which tool names
+write to the database: the chat panel invalidates the mindmap query when one
+finishes, and the canvas reseeds via the `updatedAt` check below.
+
+The canvas' seed-once rule has one exception for this: `MindmapEditor` tracks
+the `updatedAt` it seeded from (advanced by its own saves) and, when the
+fetched document carries an `updatedAt` it didn't produce, reseeds React Flow
+state and drops any pending autosave — otherwise the debounced PATCH would
+overwrite the server-side edit with the stale local graph.
+
+The chat panel (`components/mindmap-chat.tsx`) is built from AI SDK Elements
+(`components/ai-elements/`, vendored source installed via the shadcn
+registry) restyled with the design-system tokens; it stays mounted so the
+conversation survives closing the panel.
+
 ### Web state split
 
 - **Server state → React Query.** `apps/web/src/hooks/use-mindmaps.ts` owns all

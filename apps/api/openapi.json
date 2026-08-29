@@ -178,6 +178,43 @@
           "mindmaps"
         ]
       }
+    },
+    "/api/chat": {
+      "post": {
+        "operationId": "ChatController_chat",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AI SDK UI message event stream (SSE). Assistant text and mindmap tool calls arrive as streamed message parts.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Body failed validation"
+          },
+          "503": {
+            "description": "ANTHROPIC_API_KEY is not configured on the server"
+          }
+        },
+        "tags": [
+          "chat"
+        ]
+      }
     }
   },
   "info": {
@@ -359,6 +396,31 @@
             }
           }
         }
+      },
+      "ChatRequestDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Chat session id from the AI SDK"
+          },
+          "mindmapId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Id of the mindmap currently open in the canvas, used as conversation context"
+          },
+          "messages": {
+            "type": "array",
+            "description": "AI SDK UIMessage array. See https://ai-sdk.dev — the shape is owned by the `ai` package and streamed back as a UI message event stream.",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "messages"
+        ]
       }
     }
   }

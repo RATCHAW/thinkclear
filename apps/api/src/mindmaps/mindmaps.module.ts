@@ -10,5 +10,6 @@ import { MindmapsService } from "./mindmaps.service";
   ],
   controllers: [MindmapsController],
   providers: [MindmapsService],
+  exports: [MindmapsService],
 })
 export class MindmapsModule {}

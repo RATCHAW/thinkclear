@@ -106,24 +106,53 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
   // against it keeps autosave from re-sending a stale root title over a
   // rename made in the library sheet.
   const syncedTitle = useRef(rootTitle(toFlowNodes(mindmap)) ?? mindmap.title);
+  // The `updatedAt` this editor's local state corresponds to: the document it
+  // seeded from, advanced by every save it makes itself. When the prop's
+  // `updatedAt` moves past it, someone else wrote — see the reconcile effect.
+  const syncedAt = useRef(mindmap.updatedAt);
 
   const flush = useCallback(() => {
     if (!pending.current) return;
     const { title } = pending.current;
     pending.current = null;
     const { nodes, edges } = graph.current;
-    saveGraph({
-      id: mindmap._id,
-      nodes: nodes.map((node) => ({
-        id: node.id,
-        title: node.data.title,
-        x: node.position.x,
-        y: node.position.y,
-      })),
-      edges: edges.map(({ id, source, target }) => ({ id, source, target })),
-      ...(title ? { title } : {}),
-    });
+    saveGraph(
+      {
+        id: mindmap._id,
+        nodes: nodes.map((node) => ({
+          id: node.id,
+          title: node.data.title,
+          x: node.position.x,
+          y: node.position.y,
+        })),
+        edges: edges.map(({ id, source, target }) => ({ id, source, target })),
+        ...(title ? { title } : {}),
+      },
+      {
+        onSuccess: (updated) => {
+          if (updated) syncedAt.current = updated.updatedAt;
+        },
+      },
+    );
   }, [mindmap._id, saveGraph]);
+
+  // -- External edits ------------------------------------------------------
+  // The AI chat (and, later, MCP clients) write to Mongo server-side, so the
+  // seed-once rule gets one exception: when the fetched document's updatedAt
+  // is one this editor didn't produce, the server has a newer graph than the
+  // canvas. Local state reseeds from it and any pending autosave is dropped —
+  // otherwise the debounced PATCH would overwrite the external edit with the
+  // stale local graph a moment later.
+  useEffect(() => {
+    if (mindmap.updatedAt === syncedAt.current) return;
+    syncedAt.current = mindmap.updatedAt;
+    pending.current = null;
+    window.clearTimeout(timer.current);
+    const nodes = toFlowNodes(mindmap);
+    setNodes(nodes);
+    setEdges(toFlowEdges(mindmap));
+    syncedTitle.current = rootTitle(nodes) ?? mindmap.title;
+  }, [mindmap, setNodes, setEdges]);
 
   const initialized = useRef(false);
   useEffect(() => {
