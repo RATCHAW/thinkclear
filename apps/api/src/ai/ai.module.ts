@@ -9,5 +9,7 @@ import { MindmapToolsService } from "./mindmap-tools.service";
   imports: [MindmapsModule, ConversationsModule],
   controllers: [ChatController],
   providers: [AiService, MindmapToolsService],
+  // The MCP server serves the same tools to outside agent clients.
+  exports: [MindmapToolsService],
 })
 export class AiModule {}

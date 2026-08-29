@@ -375,6 +375,38 @@
           "chat"
         ]
       }
+    },
+    "/api/mcp": {
+      "post": {
+        "operationId": "McpController_post",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "MCP JSON-RPC response. Streams as SSE when the exchange emits progress before its result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token. Carries the RFC 9728 WWW-Authenticate challenge pointing at the protected resource metadata."
+          },
+          "403": {
+            "description": "The token is valid but lacks a required scope"
+          }
+        },
+        "tags": [
+          "mcp"
+        ]
+      }
     }
   },
   "info": {

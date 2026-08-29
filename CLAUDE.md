@@ -83,6 +83,60 @@ They are not linked. Adding a field means editing the zod schema *and* the DTO
 class, then regenerating. A DTO that drifts from its schema produces web types
 that lie.
 
+### MCP is the second transport over the same tools
+
+`POST /api/mcp` (apps/api/src/mcp) serves the Model Context Protocol to
+outside agent clients. It defines **no tools of its own**: `McpService` adapts
+the AI SDK tool set from `MindmapToolsService.forOwner()` into MCP
+registrations, so the chat panel and a connected agent call the same objects
+and a tool added for one appears in the other. `packages/shared/src/mcp.ts`
+derives each tool's required scope from `MUTATING_CHAT_TOOLS`, so a new write
+tool cannot become callable with a read-only token by omission.
+
+That derivation is the point, and notes are the worked example: `read_topic_note`
+and `set_topic_note` were added for the assistant and reached MCP correctly
+scoped with no change in `apps/api/src/mcp`. What a new tool *does* need is a
+decision about `isDestructiveMcpTool` — the list is "content that cannot be
+typed back" (the deletes, and `set_topic_note`, which replaces a note
+wholesale), deliberately narrower than the MCP spec's additive/non-additive
+split so the hint keeps meaning something. `mcp.service.spec.ts` asserts the
+full tool list against the real `MindmapToolsService`, so adding a tool fails
+there until it has been placed.
+
+Serving is per-request and stateless (`createMcpHandler` with
+`legacy: "stateless"`, which keeps 2025-era clients working — `reject` would
+validate but nothing shipping could connect). The factory builds a fresh
+`McpServer` per request from that request's verified token, which is what lets
+the token decide the owner and the tool list. Scopes are enforced by
+**omission**: an ungranted tool is not registered, so it is "no such tool"
+rather than "denied".
+
+Auth is OAuth 2.1, not the session cookie. `auth.ts` adds `jwt()` +
+`mcp()` from `@better-auth/mcp`, which makes Better Auth the authorization
+server; `requireMcpAuth` verifies the bearer token against its JWKS and answers
+an unauthenticated call with the RFC 9728 challenge that bootstraps the whole
+flow. Three things follow, and each is load-bearing:
+
+- **`APP_URL` is the app's public origin, not the API's port.** The authorize
+  endpoint redirects to `/sign-in` and `/consent`, which the *web* app serves,
+  so the issuer has to be the origin those pages are on. `/api` is proxied
+  there already.
+- **Discovery lives at the origin root**, fixed by RFC 9728/8414, which is the
+  one place Better Auth is not mounted. `OAuthDiscoveryController` forwards
+  those paths into `auth.handler` unchanged — the plugin's `onRequest` hook
+  matches on the raw pathname — so there is no second copy of the metadata.
+  Both the vite proxy and `nginx.conf` must pass `/.well-known` through.
+- **Both controllers are `@Public()`.** They are not unprotected: the module's
+  global session guard would answer a bare 401 with no challenge in it, and a
+  client with no cookie would have nowhere to go. `requireMcpAuth` is the check
+  that replaces it. `mcp.e2e-spec.ts` imports the real `AuthModule` so removing
+  `@Public()` fails the suite rather than silently breaking every client.
+
+`MCP_JWKS_URL` overrides where tokens are verified against. It defaults to
+`APP_URL`, which is right when that origin is reachable from the API — but in
+the compose stack the API sits *behind* the web container, so it is set to the
+API's own address there.
+
 ### Auth and ownership
 
 Better Auth is mounted by `AuthModule.forRoot({ auth })` from
@@ -90,6 +144,9 @@ Better Auth is mounted by `AuthModule.forRoot({ auth })` from
 same Mongo database via its own `MongoClient`. `main.ts` creates the app with
 `bodyParser: false` because Better Auth needs the raw body — the auth module
 re-adds parsers for everything else. Don't re-enable the global body parser.
+
+Better Auth is also the OAuth authorization server for MCP (see above), so
+`auth.ts` carries the `jwt()` and `mcp()` plugins and `baseURL` is `APP_URL`.
 
 Every resource route takes `@Session() session: UserSession` and passes
 `session.user.id` into the service. In `MindmapsService` and

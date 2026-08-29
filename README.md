@@ -73,6 +73,45 @@ stops matching.
 - Regenerate the OpenAPI spec + web API types: `pnpm openapi`
   (writes `apps/api/openapi.json` and `apps/web/src/lib/api-types.d.ts`)
 
+## MCP — use your mindmaps from your own agent
+
+The same tools the built-in assistant calls are exposed over the Model Context
+Protocol at `POST /api/mcp`, so Claude Code (or any MCP client) can list, read,
+create, rename, reorganize, and delete your mindmaps, and read and write the
+markdown note on any topic. Add it with nothing but the URL:
+
+```bash
+claude mcp add --transport http mindmap http://localhost:5173/api/mcp
+```
+
+The first call comes back `401` with an RFC 9728 `WWW-Authenticate` challenge;
+the client follows it, registers itself, opens a browser, and you sign in and
+approve the scopes on a consent screen. There is no API key to copy.
+
+| Scope | |
+|---|---|
+| `mindmaps:read` | `list_mindmaps`, `read_mindmap`, `read_topic_note` |
+| `mindmaps:write` | `create_mindmap`, `rename_mindmap`, `delete_mindmap`, `add_topics`, `rename_topic`, `move_topic`, `delete_topics`, `set_topic_note` |
+
+Scopes are enforced by leaving tools out: a token without `mindmaps:write`
+serves a tool list with no way to edit anything, so the client's model never
+plans a call that was going to be refused. Every tool runs through
+`MindmapsService` under the token owner's id, so an agent sees exactly the
+mindmaps its user owns and writes are validated the same way the HTTP routes
+validate them.
+
+The tools are not restated for MCP — they are the assistant's, adapted — so
+which scope a tool needs is derived from the same list the web app uses to know
+which tools write. `set_topic_note` is also marked `destructiveHint` so a
+client can confirm before an agent replaces a note you wrote.
+
+Better Auth is the authorization server (`@better-auth/mcp`), which is why
+`APP_URL` matters: the OAuth flow redirects to `/sign-in` and `/consent` in the
+web app, and discovery is published at the origin root
+(`/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server`).
+Point `APP_URL` at the origin users actually reach the app on, not at the API's
+port.
+
 ## Full docker stack
 
 Builds the api and web images and runs everything in containers:
