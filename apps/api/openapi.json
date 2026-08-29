@@ -179,6 +179,163 @@
         ]
       }
     },
+    "/api/conversations": {
+      "get": {
+        "operationId": "ConversationsController_findMine",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConversationSummaryDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "conversations"
+        ]
+      },
+      "post": {
+        "operationId": "ConversationsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateConversationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Body failed validation"
+          }
+        },
+        "tags": [
+          "conversations"
+        ]
+      }
+    },
+    "/api/conversations/{id}": {
+      "get": {
+        "operationId": "ConversationsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "conversations"
+        ]
+      },
+      "patch": {
+        "operationId": "ConversationsController_rename",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateConversationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Body failed validation"
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "conversations"
+        ]
+      },
+      "delete": {
+        "operationId": "ConversationsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "conversations"
+        ]
+      }
+    },
     "/api/chat": {
       "post": {
         "operationId": "ChatController_chat",
@@ -207,8 +364,11 @@
           "400": {
             "description": "Body failed validation"
           },
+          "404": {
+            "description": "No conversation with that id belongs to the caller"
+          },
           "503": {
-            "description": "ANTHROPIC_API_KEY is not configured on the server"
+            "description": "LLM_GATEWAY_API_KEY is not configured on the server"
           }
         },
         "tags": [
@@ -397,12 +557,107 @@
           }
         }
       },
+      "ConversationSummaryDto": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "ownerId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Bumped by every chat turn, so it doubles as the last-used time the history list sorts on."
+          }
+        },
+        "required": [
+          "_id",
+          "title",
+          "ownerId",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ConversationDto": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "ownerId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Bumped by every chat turn, so it doubles as the last-used time the history list sorts on."
+          },
+          "messages": {
+            "type": "array",
+            "description": "AI SDK UIMessage array. See https://ai-sdk.dev — the shape is owned by the `ai` package and stored as sent.",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "_id",
+          "title",
+          "ownerId",
+          "createdAt",
+          "updatedAt",
+          "messages"
+        ]
+      },
+      "CreateConversationDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Plan a launch mindmap",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Defaults to \"New chat\". The web app passes the first message, shortened."
+          }
+        }
+      },
+      "UpdateConversationDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Launch planning",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
       "ChatRequestDto": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
             "description": "Chat session id from the AI SDK"
+          },
+          "conversationId": {
+            "type": "string",
+            "description": "Conversation this turn belongs to. Must be one of the caller's own conversations; the route appends the turn to it. Create one with POST /api/conversations first."
           },
           "mindmapId": {
             "type": "string",
@@ -419,6 +674,7 @@
           }
         },
         "required": [
+          "conversationId",
           "messages"
         ]
       }

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react/pure";
 import App from "@/App";
 import { useUiStore } from "@/stores/ui-store";
-import { createFakeMindmapApi } from "./fake-mindmap-api";
+import { createFakeApi } from "./fake-api";
 
 const auth = vi.hoisted(() => ({
   session: { data: null as Session | null, isPending: false },
@@ -44,7 +44,7 @@ describe("application session routing", () => {
     auth.session.data = {
       user: { id: "user-1", email: "ada@example.com", name: "Ada" },
     };
-    const api = createFakeMindmapApi();
+    const api = createFakeApi();
     vi.stubGlobal("fetch", vi.fn(api.fetch));
     const screen = await render(<App />, { wrapper: testProviders() });
 

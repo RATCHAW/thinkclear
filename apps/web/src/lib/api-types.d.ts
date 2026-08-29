@@ -52,6 +52,38 @@ export interface paths {
         patch: operations["MindmapsController_update"];
         trace?: never;
     };
+    "/api/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ConversationsController_findMine"];
+        put?: never;
+        post: operations["ConversationsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ConversationsController_findOne"];
+        put?: never;
+        post?: never;
+        delete: operations["ConversationsController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["ConversationsController_rename"];
+        trace?: never;
+    };
     "/api/chat": {
         parameters: {
             query?: never;
@@ -125,9 +157,42 @@ export interface components {
             /** @description Replaces every edge. Ids must be unique, both endpoints must be nodes of this mindmap, and the result must stay a tree: no self-connections, no node pair connected twice, and no loops. Disconnected branches are allowed. */
             edges?: components["schemas"]["MindmapEdgeDto"][];
         };
+        ConversationSummaryDto: {
+            _id: string;
+            title: string;
+            ownerId: string;
+            createdAt: string;
+            /** @description Bumped by every chat turn, so it doubles as the last-used time the history list sorts on. */
+            updatedAt: string;
+        };
+        ConversationDto: {
+            _id: string;
+            title: string;
+            ownerId: string;
+            createdAt: string;
+            /** @description Bumped by every chat turn, so it doubles as the last-used time the history list sorts on. */
+            updatedAt: string;
+            /** @description AI SDK UIMessage array. See https://ai-sdk.dev — the shape is owned by the `ai` package and stored as sent. */
+            messages: {
+                [key: string]: unknown;
+            }[];
+        };
+        CreateConversationDto: {
+            /**
+             * @description Defaults to "New chat". The web app passes the first message, shortened.
+             * @example Plan a launch mindmap
+             */
+            title?: string;
+        };
+        UpdateConversationDto: {
+            /** @example Launch planning */
+            title: string;
+        };
         ChatRequestDto: {
             /** @description Chat session id from the AI SDK */
             id?: string;
+            /** @description Conversation this turn belongs to. Must be one of the caller's own conversations; the route appends the turn to it. Create one with POST /api/conversations first. */
+            conversationId: string;
             /** @description Id of the mindmap currently open in the canvas, used as conversation context */
             mindmapId?: string | null;
             /** @description AI SDK UIMessage array. See https://ai-sdk.dev — the shape is owned by the `ai` package and streamed back as a UI message event stream. */
@@ -302,6 +367,145 @@ export interface operations {
             };
         };
     };
+    ConversationsController_findMine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationSummaryDto"][];
+                };
+            };
+        };
+    };
+    ConversationsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateConversationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationDto"];
+                };
+            };
+            /** @description Body failed validation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ConversationsController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ConversationsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ConversationsController_rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateConversationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationDto"];
+                };
+            };
+            /** @description Body failed validation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     ChatController_chat: {
         parameters: {
             query?: never;
@@ -331,7 +535,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description ANTHROPIC_API_KEY is not configured on the server */
+            /** @description No conversation with that id belongs to the caller */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description LLM_GATEWAY_API_KEY is not configured on the server */
             503: {
                 headers: {
                     [name: string]: unknown;
