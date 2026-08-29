@@ -84,7 +84,10 @@ id lives in the zustand UI store and is resolved against the fetched list by
 `useActiveMindmap`, so deleting the open mindmap needs no cleanup — it simply
 stops matching.
 
-- API docs (Swagger UI): http://localhost:3000/docs
+- API docs (Swagger UI): http://localhost:3000/docs, behind HTTP basic auth —
+  `DOCS_USER` / `DOCS_PASSWORD` from `apps/api/.env`. Leave either unset and the
+  docs are not served at all, so a deployment that forgets them cannot publish
+  its whole route list by accident.
 - Regenerate the OpenAPI spec + web API types: `pnpm openapi`
   (writes `apps/api/openapi.json` and `apps/web/src/lib/api-types.d.ts`)
 
@@ -97,8 +100,8 @@ markdown note on any topic. Add it with nothing but the URL:
 
 ```bash
 claude mcp add --transport http mindmap http://localhost:5173/api/mcp
-# deployed:
-claude mcp add --transport http thinkclear https://app.thinkclear.xyz/api/mcp
+# deployed: your own origin, the one APP_URL names
+claude mcp add --transport http mindmap https://<your-app-origin>/api/mcp
 ```
 
 The first call comes back `401` with an RFC 9728 `WWW-Authenticate` challenge;
@@ -149,12 +152,12 @@ origin the way it does in production.
 
 ## Deployment
 
-[`DEPLOYMENT.md`](./DEPLOYMENT.md) is the guide. In short: the app goes to
-**Vercel** at `app.thinkclear.xyz`, the API to a **VPS through Coolify** at
-`api.thinkclear.xyz`, and Vercel's rewrites keep the two on one origin — which
-the session cookie, Better Auth's OAuth redirects, and MCP's root-level
-discovery all depend on. (`thinkclear.xyz` is a separate landing app, deployed
-on its own.)
+[`DEPLOYMENT.md`](./DEPLOYMENT.md) is the guide. In short: the web app goes to
+**Vercel**, the API to a **VPS through Coolify**, and Vercel's rewrites keep the
+two on one origin — which the session cookie, Better Auth's OAuth redirects, and
+MCP's root-level discovery all depend on. The API host is the one
+per-deployment value in the repository, written literally in `vercel.json`
+because Vercel does not interpolate environment variables into it.
 
 | Workflow | |
 |---|---|
@@ -189,3 +192,11 @@ variables (`--background`, `--primary`, `--muted`, …) are aliased onto the
 DESIGN.md tokens. Expect to still adjust radii and type on what you add, since
 the generated defaults use `text-sm`/`rounded-md` conventions rather than the
 token scale.
+
+## License
+
+[GNU AGPL v3.0](./LICENSE) — anyone may use, modify, share and sell this source
+code, **but** derivatives must stay under the same license, and running a modified
+version as a network service counts as distribution: its users have to be offered
+the complete corresponding source (section 13). That network clause is what
+separates the AGPL from the plain GPL, and it is the point of choosing it here.

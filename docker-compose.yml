@@ -36,6 +36,10 @@ services:
       # own tokens has no reason to leave it.
       MCP_JWKS_URL: http://localhost:3000/api/auth/jwks
       PORT: "3000"
+      # Swagger UI is credentialed, and unset means not served at all. These
+      # dev-only defaults keep /docs reachable in the local stack.
+      DOCS_USER: ${DOCS_USER:-docs}
+      DOCS_PASSWORD: ${DOCS_PASSWORD:-docs}
       # Absent, POST /api/chat answers 503 and everything else works.
       LLM_GATEWAY_API_KEY: ${LLM_GATEWAY_API_KEY:-}
       AI_CHAT_MODEL: ${AI_CHAT_MODEL:-deepseek/deepseek-v4-flash}
