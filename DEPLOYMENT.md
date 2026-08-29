@@ -8,8 +8,12 @@ MongoDB runs beside the API. GitHub Actions gates both.
 | | | |
 |---|---|---|
 | `thinkclear.xyz` | the landing page | `apps/landing` — in this repository, but its own Vercel project and its own deploy |
+| `www.thinkclear.xyz` | — | 308 to the apex; the apex is the canonical host |
 | `app.thinkclear.xyz` | **the app** | Vercel; the only origin a browser or an MCP client ever talks to |
 | `api.thinkclear.xyz` | the API | Coolify on the VPS; reachable, but nothing is meant to arrive there directly |
+
+The registrar holds one zone for all of them — see [DNS](#dns) for the record
+set and for what in it belongs to somebody else.
 
 ## The one thing to understand first
 
@@ -142,15 +146,62 @@ repository. Two projects on one root domain do not collide. Set it up as:
 |---|---|
 | Root Directory | `apps/landing` |
 | Include source files outside the Root Directory | **on** — it is a pnpm workspace |
-| Framework | Next.js (`apps/landing/vercel.json` says so; the build command filters to `@thinkclear/landing`) |
+| Framework | Next.js |
+| Build Command | **not overridden** |
+| Output Directory | **not overridden** |
 | Environment variables | **none** |
-| Domain | `thinkclear.xyz` |
+| Domains | `thinkclear.xyz` (production), `www.thinkclear.xyz` (308 → apex) |
+
+**Leave Build Command and Output Directory unset**, and that is worth saying in
+its own sentence because getting it wrong is silent until the deploy. Those two
+fields come from `apps/landing/vercel.json` and the Next.js preset; a project
+created by copying the app's settings arrives carrying
+`--filter=@thinkclear/web` and `apps/web/dist`, which builds the wrong workspace
+and then fails looking for a `dist` the Next.js app never produces. The
+symptom names `apps/web` in a project whose root directory is `apps/landing`,
+which is the tell.
 
 It has **no rewrites**, which is the difference that matters: the app's
 `vercel.json` proxies `/api` and `/.well-known` because the whole one-origin rule
 depends on it, and the landing proxies nothing because it serves nothing but
 static pages. It reaches the app by link, at the URLs in
 `apps/landing/src/lib/site.ts` — the only place either origin is written down.
+
+### DNS
+
+One zone at the registrar covers all three hosts. Nothing is shared between
+them, so a change to one cannot break another — but they do all live in the
+same record set, and the mail records are in there too.
+
+| Type | Host | Value | |
+|---|---|---|---|
+| A | `@` | `216.198.79.1` | the landing, on Vercel |
+| CNAME | `www` | the per-domain `*.vercel-dns-017.com.` target Vercel shows | 308s to the apex |
+| CNAME | `app` | `cname.vercel-dns.com.` | the app, on Vercel |
+| A | `api` | the VPS address | the API, behind Coolify |
+| MX + TXT | `@` | the registrar's mail forwarding and its SPF | **not ours — leave alone** |
+
+The apex is canonical and `www` redirects to it, not the other way round.
+Vercel's "add domain" dialog offers the opposite by default, and taking it
+would make `SITE_URL`, the `canonical` link tag, and the `app.` / `api.`
+sibling hosts all disagree with what is actually served.
+
+Two records, both additive, and neither of them touches the app's `app` CNAME,
+the API's `api` A record, or the mail forwarding on the apex. Confirm the whole
+set afterwards rather than only the record you added:
+
+```bash
+for h in thinkclear.xyz www.thinkclear.xyz app.thinkclear.xyz api.thinkclear.xyz; do
+  dig +short @1.1.1.1 "$h"
+done
+dig +short @1.1.1.1 thinkclear.xyz MX        # must still be the forwarders
+curl -sI https://www.thinkclear.xyz/         # 308 → https://thinkclear.xyz/
+```
+
+A machine that queried the apex before the record existed caches the *absence*
+for the zone's negative TTL — an hour here — so `dig` can answer while `curl`
+on the same machine still says "could not resolve". That is local, not a
+deployment problem: check from a public resolver before believing it.
 
 ### The landing page and the session
 
