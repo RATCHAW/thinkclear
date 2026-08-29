@@ -1,6 +1,7 @@
 {
   "name": "mindmap",
   "private": true,
+  "license": "AGPL-3.0-only",
   "packageManager": "pnpm@10.17.0",
   "engines": {
     "node": "^20.19.0 || ^22.13.0 || >=24"
