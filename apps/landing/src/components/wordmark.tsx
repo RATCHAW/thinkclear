@@ -1,6 +1,11 @@
 /**
- * The logo: three topics on a branch, then the name. Drawn in `currentColor`
- * so the footer's dark band gets it for free.
+ * The logo — "The Unknotting": two threads cross once, then run parallel.
+ * Two shapes and no third, so there is nothing to lose at favicon size.
+ *
+ * Drawn on the 24×24 grid at 1.9px with round caps and joins, in
+ * `currentColor`, so the header and the footer both get it from whatever ink
+ * they already set. The app icon (`app/icon.svg`) is the same glyph in the
+ * other skin — root yellow on Ink Navy.
  */
 export function Wordmark({ className }: { className?: string }) {
   return (
@@ -18,13 +23,10 @@ export function Wordmark({ className }: { className?: string }) {
           aria-hidden="true"
           focusable="false"
         >
-          <circle cx="4.5" cy="12" r="2.5" />
-          <circle cx="19.5" cy="6" r="2.5" />
-          <circle cx="19.5" cy="18" r="2.5" />
-          <path d="M7 11.2c3.4-1 4-1.3 5-2.4s1.8-1.5 5-2.5" />
-          <path d="M7 12.8c3.4 1 4 1.3 5 2.4s1.8 1.5 5 2.5" />
+          <path d="M3.4 5.8C8.6 5.8 8.6 18.2 13.4 18.2H20.6" />
+          <path d="M3.4 18.2C8.6 18.2 8.6 5.8 13.4 5.8H20.6" />
         </svg>
-        <span className="text-body-lg font-bold tracking-[-0.01em]">
+        <span className="text-body-lg font-extrabold tracking-[-0.01em]">
           ThinkClear
         </span>
       </span>

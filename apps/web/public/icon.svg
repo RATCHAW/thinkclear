@@ -1,0 +1,19 @@
+<!-- The same drawing as the landing's `src/app/icon.svg`, and it has to stay
+     that way: thinkclear.xyz and app.thinkclear.xyz are one product, and two
+     different marks in two browser tabs would say otherwise. The icon skin is
+     the canvas palette — root yellow on Ink Navy — which is the board's
+     recommendation for the icon and the avatar, and the only place those two
+     colours appear outside the React Flow canvas. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" fill="none">
+  <rect width="72" height="72" rx="17" fill="#0b3558" />
+  <g
+    transform="translate(13 13) scale(1.9167)"
+    stroke="#ffe600"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M3.4 5.8C8.6 5.8 8.6 18.2 13.4 18.2H20.6" />
+    <path d="M3.4 18.2C8.6 18.2 8.6 5.8 13.4 5.8H20.6" />
+  </g>
+</svg>

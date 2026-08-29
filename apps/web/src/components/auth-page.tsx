@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Wordmark } from "@/components/wordmark";
 import { signIn, signUp } from "@/lib/auth-client";
 
 type Mode = "sign-in" | "sign-up";
@@ -53,9 +54,10 @@ export function AuthPage() {
     <div className="surface-cloud flex min-h-svh items-center justify-center px-4 py-20">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <span className="text-caption-bold uppercase text-graphite">
-            ThinkClear
-          </span>
+          {/* The lockup rather than the name set in {typography.caption-bold}:
+              this is the first screen anyone sees, and the one place the
+              product has to say what it is before asking for a password. */}
+          <Wordmark />
           <CardTitle className="text-display-md">
             {mode === "sign-in" ? "Sign in" : "Create an account"}
           </CardTitle>
