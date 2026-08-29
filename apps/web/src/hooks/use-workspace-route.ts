@@ -1,7 +1,9 @@
 import { useSyncExternalStore } from "react";
 import {
+  DEFAULT_ACCOUNT_SECTION,
   parseWorkspaceRoute,
   workspaceRouteUrl,
+  type AccountSection,
   type WorkspaceRoute,
 } from "@/lib/workspace-route";
 
@@ -108,6 +110,30 @@ export function setHistoryOpen(historyOpen: boolean): void {
       ? { historyOpen: true, assistantOpen: true }
       : { historyOpen: false },
   );
+}
+
+/**
+ * Opens account settings, and puts the library away — the trigger lives in its
+ * footer, so this is a move out of the library rather than something layered
+ * over it. Two modal surfaces stacked would also mean Escape backing out
+ * through a sheet the user had already left.
+ *
+ * Settings are a place, and being in them is one history entry however many
+ * sections get read while there — which is why `openAccount` pushes and
+ * `setAccountSection` below replaces.
+ */
+export function openAccount(
+  section: AccountSection = DEFAULT_ACCOUNT_SECTION,
+): void {
+  navigate({ accountSection: section, libraryOpen: false });
+}
+
+export function setAccountSection(section: AccountSection): void {
+  navigate({ accountSection: section }, { replace: true });
+}
+
+export function closeAccount(): void {
+  navigate({ accountSection: null });
 }
 
 /**

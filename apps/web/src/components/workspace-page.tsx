@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Sparkles } from "lucide-react";
+import { AccountDialog } from "@/components/account-dialog";
 import { Button } from "@/components/ui/button";
 import { MindmapCanvas } from "@/components/mindmap-canvas";
 import { MindmapLibrary } from "@/components/mindmap-library";
@@ -66,6 +67,11 @@ export function WorkspacePage({
       <Suspense fallback={null}>
         <AssistantPanel />
       </Suspense>
+
+      {/* Rendered from here rather than from the library trigger that opens it:
+          the address bar can open it too, and settings that only existed while
+          a sheet was mounted could not be linked to. */}
+      <AccountDialog user={user} />
 
       {!activeMindmap && (
         <div className="animate-fade-in pointer-events-none absolute inset-0 flex items-center justify-center p-4">

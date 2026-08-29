@@ -157,6 +157,12 @@ export interface components {
         };
         MeResponseDto: {
             user: components["schemas"]["MeUserDto"];
+            /**
+             * @example [
+             *       "google"
+             *     ]
+             */
+            socialProviders: "google"[];
         };
         MindmapNodeDto: {
             /**

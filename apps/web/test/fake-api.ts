@@ -18,11 +18,14 @@ type ChatBody = {
 export function createFakeApi({
   mindmaps: initialMindmaps = [],
   conversations: initialConversations = [],
+  socialProviders = ["google"],
   reply = "Done.",
   tool,
 }: {
   mindmaps?: Mindmap[];
   conversations?: Conversation[];
+  /** What `GET /api/me` says this deployment has credentials for. */
+  socialProviders?: string[];
   reply?: string;
   /**
    * A server-side tool call to stream ahead of the reply, the way the real
@@ -46,6 +49,13 @@ export function createFakeApi({
         : null;
     const mindmapId = idIn("/api/mindmaps/");
     const conversationId = idIn("/api/conversations/");
+
+    if (pathname === "/api/me" && request.method === "GET") {
+      return json({
+        user: { id: "user-1", email: "ada@example.com", name: "Ada" },
+        socialProviders,
+      });
+    }
 
     if (pathname === "/api/mindmaps" && request.method === "GET") {
       return json(mindmaps);
