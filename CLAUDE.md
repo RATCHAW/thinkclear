@@ -148,6 +148,21 @@ re-adds parsers for everything else. Don't re-enable the global body parser.
 Better Auth is also the OAuth authorization server for MCP (see above), so
 `auth.ts` carries the `jwt()` and `mcp()` plugins and `baseURL` is `APP_URL`.
 
+**A social provider is registered only if its whole credential is present.**
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` must both be set or Google is not
+in `socialProviders` at all — a self-hosted instance with no Google app is the
+normal case, not a misconfiguration. `SOCIAL_PROVIDERS` in `auth.ts` is that
+decision made once, and `GET /api/me` reports it so the account screen can hide
+a button rather than render one that 400s on press. The candidate list and the
+on-screen labels live in `packages/shared/src/account.ts`, next to the MCP
+scopes and for the same reason.
+
+`accountLinking.trustedProviders` includes Google, so signing in with Google at
+an address an account already has *joins* that account instead of starting a
+second one. The trust being extended is specifically that the provider verified
+the address — the join is keyed on email, so a provider that does not verify
+must stay off that list.
+
 Every resource route takes `@Session() session: UserSession` and passes
 `session.user.id` into the service. In `MindmapsService` and
 `ConversationsService`, **every query is scoped by `ownerId`** and a miss goes
@@ -294,6 +309,50 @@ The assistant reaches notes through `read_topic_note` / `set_topic_note`, and
 prose — a map where every topic carried a paragraph would push the tree itself
 out of the model's attention.
 
+### The account is a place, not a menu
+
+`components/account-dialog.tsx` is where everything about the *person* lives —
+profile, sign-in methods, and connected agents — as opposed to the library and
+the assistant, which are about their mindmaps. It is a **modal**, not a fourth
+floating surface: the library and assistant float over the canvas because they
+are used *while* working, and something opened twice a year should not be
+permanently reachable chrome. Its height is fixed for the same reason list rows
+are pinned — a box that resizes as you move between sections turns navigating it
+into something you have to watch.
+
+Adding a section is adding an entry to `ACCOUNT_SECTIONS` in
+`lib/workspace-route.ts` and a case in `account-dialog.tsx`. The three that exist
+are the shape the next one should follow:
+
+- **Profile** — name, email, sign out. Sign out moved here out of the library
+  footer, which is now purely the way in: `openAccount()` *closes* the library,
+  because this is a move rather than a layer, and two stacked modals would mean
+  Escape backing out through a sheet the user had already left.
+- **Sign-in** — `authClient.listAccounts()` for what is linked, `GET /api/me`
+  for what this deployment can offer. Both have to agree before a row is drawn;
+  an unconfigured provider is absent rather than disabled.
+- **MCP** — the endpoint, the per-client setup guide, and the connected agents.
+  One section rather than three because it is one task read at different times.
+  `lib/mcp-connection.ts` holds the guide **as data**, with the endpoint
+  substituted in from one place, so supporting another client is adding an entry
+  rather than writing prose in a component. That endpoint is derived from
+  `window.location.origin`, not fetched: the one-origin rule is what makes the
+  guess correct, and an origin where it were wrong is one where the client's own
+  RFC 9728 discovery would have failed too.
+
+Connected agents are the other half of the consent screen, which promises in so
+many words that a grant can be revoked "from your account" — `oauth2.getConsents`
+/ `oauth2.deleteConsent`, with the client's registered name fetched per row the
+way the consent screen fetches it, since a client id is not something a person
+recognizes.
+
+Sections are addressable (`?account=mcp`), which pays for itself twice: "here is
+how you connect Claude Code" is a link somebody can be sent, and `linkSocial`'s
+`callbackURL` is just the URL the app is already on, so coming back from Google
+restores the screen with nothing saved and nothing to restore. Switching
+sections `replace`s rather than pushes — Back should leave settings, not walk
+back through tabs.
+
 ### Web state split
 
 - **Server state → React Query.** `apps/web/src/hooks/use-mindmaps.ts` owns all
@@ -307,6 +366,8 @@ out of the model's attention.
 - **UI state → the URL.** There is no client-side UI store; `window.location`
   is it. `lib/workspace-route.ts` is the whole grammar — `/mindmaps/<id>` for
   the canvas, `?library`, `?assistant` / `?assistant=history`,
+  `?account` / `?account=<section>` for account settings (bare means the first
+  section, so the commonest link is the short one),
   `?note=<id>,<id>` for the topics whose notes are open (front-most last), and
   `?chat=<id>` for the conversation the assistant holds whether or not the
   panel is open — and `hooks/use-workspace-route.ts` binds it to React with

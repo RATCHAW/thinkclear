@@ -20,7 +20,15 @@ pnpm dev                          # api on :3000, web on :5173
 ```
 
 Open http://localhost:5173 — sign up, then you land in the workspace: the
-mindmap canvas, with the library sheet behind the trigger in the top-left.
+mindmap canvas, with the library sheet behind the trigger in the top-left. The
+footer of that sheet leads to **Account**, which owns everything about the
+person rather than their mindmaps — signing out, connecting Google, and the
+setup guide for pointing an agent client at your maps.
+
+To offer Google as well as a password, set `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET` in `apps/api/.env` with
+`http://localhost:5173/api/auth/callback/google` as the authorized redirect URI.
+Without them the API reports no providers and the button is not rendered.
 
 ## Testing
 
@@ -96,6 +104,11 @@ claude mcp add --transport http thinkclear https://app.thinkclear.xyz/api/mcp
 The first call comes back `401` with an RFC 9728 `WWW-Authenticate` challenge;
 the client follows it, registers itself, opens a browser, and you sign in and
 approve the scopes on a consent screen. There is no API key to copy.
+
+The app carries the same instructions for Claude Code, Codex, and anything else
+under **Account › MCP** (`/?account=mcp`), with the endpoint filled in for the
+origin you are actually on — and it is where a grant given on the consent screen
+is taken back.
 
 | Scope | |
 |---|---|

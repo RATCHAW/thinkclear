@@ -13,6 +13,8 @@
  *   ?library             the library sheet is open
  *   ?assistant           the assistant is open, showing the chat
  *   ?assistant=history   …showing chat history over the chat instead
+ *   ?account             account settings, on the first section
+ *   ?account=mcp         …on that section instead
  *   ?note=<id>,<id>      those topics' notes are open, front-most last
  *   ?chat=<id>           the conversation the assistant holds, whether or not
  *                        the panel is open
@@ -31,6 +33,14 @@ export interface WorkspaceRoute {
   /** Whether the assistant is showing chat history instead of the chat. */
   historyOpen: boolean;
   /**
+   * The section of account settings on screen, or `null` when settings are
+   * closed. One field rather than an open flag beside a section, because there
+   * is no such thing as settings open on no section — and because the list
+   * below is expected to grow, and a grammar that grows by one entry is
+   * cheaper than one that grows by one flag.
+   */
+  accountSection: AccountSection | null;
+  /**
    * The topics whose notes are open, as windows over the canvas — **front-most
    * last**, so this is the stacking order as well as the guest list. Notes are
    * read side by side, so opening one never closes another.
@@ -46,6 +56,20 @@ export interface WorkspaceRoute {
   noteNodeIds: string[];
 }
 
+/**
+ * The sections of account settings, in the order they are listed.
+ *
+ * The first one is the default: `?account` means "settings, wherever they
+ * open", and only a section that is not the default is named in the URL. That
+ * keeps the common link short and stops the parameter from encoding a choice
+ * nobody made.
+ */
+export const ACCOUNT_SECTIONS = ["profile", "sign-in", "mcp"] as const;
+
+export type AccountSection = (typeof ACCOUNT_SECTIONS)[number];
+
+export const DEFAULT_ACCOUNT_SECTION: AccountSection = ACCOUNT_SECTIONS[0];
+
 const MINDMAPS_SEGMENT = "mindmaps";
 
 export function parseWorkspaceRoute(url: string): WorkspaceRoute {
@@ -57,6 +81,7 @@ export function parseWorkspaceRoute(url: string): WorkspaceRoute {
   );
   const [collection, id] = pathname.split("/").filter(Boolean);
   const assistant = searchParams.get("assistant");
+  const account = searchParams.get("account");
   const mindmapId =
     collection === MINDMAPS_SEGMENT && id ? decodeURIComponent(id) : null;
 
@@ -66,6 +91,10 @@ export function parseWorkspaceRoute(url: string): WorkspaceRoute {
     libraryOpen: searchParams.has("library"),
     assistantOpen: assistant !== null,
     historyOpen: assistant === "history",
+    // A section this build doesn't have — an older link, a typo — opens
+    // settings on the default one rather than on nothing. The parameter says
+    // "the user is in settings"; which pane they land on is the lenient part.
+    accountSection: account === null ? null : accountSection(account),
     // Resolved the same way the serializer writes it, so a hand-typed URL
     // asking for notes with no map under them lands somewhere definite instead
     // of on a state the app can't render. Duplicates collapse: a topic's note
@@ -89,6 +118,12 @@ function rawParam(search: string, name: string): string | null {
     }
   }
   return null;
+}
+
+function accountSection(value: string): AccountSection {
+  return (ACCOUNT_SECTIONS as readonly string[]).includes(value)
+    ? (value as AccountSection)
+    : DEFAULT_ACCOUNT_SECTION;
 }
 
 function noteIds(value: string | null): string[] {
@@ -133,6 +168,13 @@ export function workspaceRouteUrl(route: WorkspaceRoute): string {
   if (route.libraryOpen) query.push("library");
   if (route.assistantOpen) {
     query.push(route.historyOpen ? "assistant=history" : "assistant");
+  }
+  if (route.accountSection) {
+    query.push(
+      route.accountSection === DEFAULT_ACCOUNT_SECTION
+        ? "account"
+        : `account=${route.accountSection}`,
+    );
   }
   if (route.noteNodeIds.length > 0 && route.mindmapId) {
     query.push(`note=${route.noteNodeIds.map(encodeURIComponent).join(",")}`);

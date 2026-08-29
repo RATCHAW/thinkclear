@@ -1,12 +1,25 @@
 "use client";
 
 import * as React from "react";
-import { XIcon } from "lucide-react";
+import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 
+/**
+ * DESIGN.md › Elevation & Depth, level 3 "Floating Modal" — the same slab
+ * `<Sheet>` uses, minus the edge it is anchored to. It is a {colors.paper}
+ * panel on {rounded.xl} with the Floating shadow, centred in the viewport.
+ *
+ * Motion follows `<Sheet>`: CSS keyframes rather than transitions, because
+ * Radix drives exit animations off `animationend` and a transition would
+ * unmount before it ran. Enter 220ms, exit 160ms — quicker to leave than to
+ * arrive, since by then the user has decided.
+ *
+ * The scale runs from `scale(0.97)`, and the transform origin stays centred:
+ * unlike a popover, a modal is not anchored to the control that opened it, so
+ * growing it out of one corner would point at nothing.
+ */
 function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -39,7 +52,8 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
+        "fixed inset-0 z-50 bg-ink/20",
+        "data-[state=open]:animate-scrim-in data-[state=closed]:animate-scrim-out",
         className,
       )}
       {...props}
@@ -51,6 +65,7 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  onOpenAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
@@ -60,21 +75,33 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        // Radix would focus the first control inside, which on a dialog that is
+        // a place rather than a form puts a focus ring on a tab nobody pressed
+        // — and reads as a selection fighting the one that is actually current.
+        // Focusing the panel keeps the screen-reader context and starts the tab
+        // order at the top, the same way `<SheetContent>` does.
+        onOpenAutoFocus={(event) => {
+          onOpenAutoFocus?.(event);
+          if (event.defaultPrevented) return;
+          event.preventDefault();
+          (event.currentTarget as HTMLElement | null)?.focus();
+        }}
         className={cn(
-          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
+          "fixed top-1/2 left-1/2 z-50 flex w-full max-w-[calc(100vw_-_1rem)] flex-col sm:max-w-lg",
+          "rounded-xl bg-paper text-foreground shadow-floating outline-none",
+          // Centring and the entrance would collide on one `transform`, so
+          // they use different properties: Tailwind v4 compiles these to the
+          // standalone `translate`, leaving `transform` free for the keyframe's
+          // scale. Nothing has to restate the other's value.
+          "-translate-x-1/2 -translate-y-1/2 will-change-transform",
+          "data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out",
           className,
         )}
         {...props}
       >
         {children}
         {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            className="absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-          >
-            <XIcon />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
+          <DialogCloseButton className="absolute top-3 right-3" />
         )}
       </DialogPrimitive.Content>
     </DialogPortal>
@@ -85,20 +112,13 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2 text-center sm:text-left", className)}
+      className={cn("flex flex-col gap-1", className)}
       {...props}
     />
   );
 }
 
-function DialogFooter({
-  className,
-  showCloseButton = false,
-  children,
-  ...props
-}: React.ComponentProps<"div"> & {
-  showCloseButton?: boolean;
-}) {
+function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-footer"
@@ -107,17 +127,11 @@ function DialogFooter({
         className,
       )}
       {...props}
-    >
-      {children}
-      {showCloseButton && (
-        <DialogPrimitive.Close asChild>
-          <Button variant="outline">Close</Button>
-        </DialogPrimitive.Close>
-      )}
-    </div>
+    />
   );
 }
 
+/** {typography.display-xs} — the same title tier as `<SheetTitle>`. */
 function DialogTitle({
   className,
   ...props
@@ -125,7 +139,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-lg leading-none font-semibold", className)}
+      className={cn("text-display-xs", className)}
       {...props}
     />
   );
@@ -138,15 +152,38 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-caption-md text-graphite", className)}
       {...props}
     />
+  );
+}
+
+/** The 44px hit box the Touch Targets section asks for, around a 16px glyph. */
+function DialogCloseButton({
+  className,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Close>) {
+  return (
+    <DialogClose
+      className={cn(
+        "inline-flex size-11 shrink-0 items-center justify-center rounded-md text-graphite outline-none",
+        "transition-[color,background-color,transform] duration-[160ms] ease-out-strong",
+        "hover:bg-cloud hover:text-foreground active:scale-[0.97] active:bg-fog",
+        "focus-visible:ring-2 focus-visible:ring-ring",
+        className,
+      )}
+      {...props}
+    >
+      <X className="size-4" />
+      <span className="sr-only">Close</span>
+    </DialogClose>
   );
 }
 
 export {
   Dialog,
   DialogClose,
+  DialogCloseButton,
   DialogContent,
   DialogDescription,
   DialogFooter,

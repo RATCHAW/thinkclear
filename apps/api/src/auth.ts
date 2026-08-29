@@ -8,7 +8,7 @@ import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { jwt } from "better-auth/plugins";
 import { MongoClient } from "mongodb";
-import { MCP_SCOPES } from "@mindmap/shared";
+import { MCP_SCOPES, type SocialProvider } from "@mindmap/shared";
 
 const mongoUri = process.env.MONGODB_URI ?? "mongodb://localhost:27017/mindmap";
 
@@ -59,12 +59,57 @@ export const CLIENT_ORIGINS = [
   ]),
 ];
 
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+/**
+ * The social providers this deployment can actually offer — the ones it holds
+ * client credentials for.
+ *
+ * Knowing how to speak to Google is not the same as being allowed to, and a
+ * self-hosted instance with no Google app is the normal case rather than a
+ * misconfiguration. So the provider is registered only when both halves of its
+ * credential are present, and `GET /api/me` reports this list so the account
+ * screen never renders a button that would fail on press.
+ */
+export const SOCIAL_PROVIDERS: SocialProvider[] =
+  googleClientId && googleClientSecret ? ["google"] : [];
+
 export const auth = betterAuth({
   baseURL: APP_URL,
   secret: process.env.BETTER_AUTH_SECRET,
   database: mongodbAdapter(client.db()),
   emailAndPassword: {
     enabled: true,
+  },
+  socialProviders:
+    googleClientId && googleClientSecret
+      ? {
+          google: {
+            clientId: googleClientId,
+            clientSecret: googleClientSecret,
+          },
+        }
+      : {},
+  account: {
+    accountLinking: {
+      // Signing in with Google using the address an account already has joins
+      // that account rather than starting a second one — otherwise a person
+      // who signed up with a password and later pressed "Continue with Google"
+      // would find an empty library and no way to explain it.
+      //
+      // `trustedProviders` is what makes that automatic, and the trust is
+      // specifically that the provider verified the address. Google does. A
+      // provider that does not must stay off this list, because the join is
+      // keyed on email: an unverified one would let anyone who can claim an
+      // address at that provider walk into the matching account here.
+      enabled: true,
+      trustedProviders: ["google"],
+      // Better Auth's default, restated because the account screen depends on
+      // it: unlinking the last credential would leave an account nobody can
+      // sign in to.
+      allowUnlinkingAll: false,
+    },
   },
   trustedOrigins: CLIENT_ORIGINS,
   plugins: [
