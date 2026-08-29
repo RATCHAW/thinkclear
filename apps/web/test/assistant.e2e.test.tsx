@@ -101,6 +101,48 @@ describe("assistant journey", () => {
     await expect.poll(() => api.conversations()).toEqual([]);
     await expect.poll(currentUrl).toBe("/?assistant");
   });
+
+  // `MUTATING_CHAT_TOOLS` is the web ↔ api contract: the server's tools write
+  // straight to Mongo, and a finished call named there is how the rest of the
+  // app hears about it.
+  test("picks up a mindmap the assistant created mid-answer", async () => {
+    const api = createFakeApi({
+      reply: "Done — it is on your canvas.",
+      tool: { name: "create_mindmap", title: "Learning TypeScript" },
+    });
+    vi.stubGlobal("fetch", vi.fn(api.fetch));
+    const screen = await render(<WorkspacePage user={user} />, {
+      wrapper: testProviders(),
+    });
+
+    await screen.getByRole("button", { name: "Assistant" }).click();
+    await screen
+      .getByPlaceholder("Ask for a mindmap, or about the ones you have…")
+      .fill("create a mindmap about learning TypeScript");
+    await screen.getByRole("button", { name: "Submit" }).click();
+
+    // The tool call reports itself in the transcript…
+    await expect
+      .element(screen.getByText("Created “Learning TypeScript”"))
+      .toBeVisible();
+
+    // …and the map it made is now the one on the canvas, without the user
+    // having gone anywhere near the library. The chat it came out of stays
+    // open beside it — nothing about opening a mindmap dismisses the panel.
+    const [created] = api.mindmaps();
+    const [conversation] = api.conversations();
+    await expect
+      .poll(currentUrl)
+      .toBe(`/mindmaps/${created?._id}?assistant&chat=${conversation?._id}`);
+    await expect
+      .element(
+        screen.getByRole("button", {
+          name: "Learning TypeScript",
+          exact: true,
+        }),
+      )
+      .toBeVisible();
+  });
 });
 
 const user = { email: "ada@example.com", name: "Ada" };

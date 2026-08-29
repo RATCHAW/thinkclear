@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { Loader2, RotateCw, SquarePen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConversationRow } from "@/components/conversation-row";
@@ -15,8 +15,12 @@ import { cn } from "@/lib/utils";
  * route or a nested sheet. The chat stays mounted underneath — its scroll
  * position and any in-flight stream survive a look at the list — and the layer
  * descends from the header button that opened it.
+ *
+ * Memoized because it is a sibling of the chat rather than a child: the panel
+ * re-renders on every chunk of a streaming answer, and none of that has
+ * anything to say about the list of conversations.
  */
-export function AssistantHistory({
+export const AssistantHistory = memo(function AssistantHistory({
   open,
   activeConversationId,
   onSelect,
@@ -129,4 +133,4 @@ export function AssistantHistory({
       </div>
     </div>
   );
-}
+});

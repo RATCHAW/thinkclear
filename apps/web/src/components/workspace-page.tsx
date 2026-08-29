@@ -1,6 +1,6 @@
+import { lazy, Suspense } from "react";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AssistantPanel } from "@/components/assistant-panel";
 import { MindmapCanvas } from "@/components/mindmap-canvas";
 import { MindmapLibrary } from "@/components/mindmap-library";
 import { useActiveMindmap } from "@/hooks/use-mindmaps";
@@ -9,6 +9,18 @@ import {
   setLibraryOpen,
   useWorkspaceRoute,
 } from "@/hooks/use-workspace-route";
+
+/**
+ * The assistant drags in the entire chat stack — the AI SDK, the streaming
+ * markdown renderer, and its syntax-highlighting, math and diagram plugins —
+ * which is most of the app's JavaScript and none of what the canvas needs to
+ * paint. Split out, it takes the initial bundle from ~720 kB to ~220 kB
+ * gzipped. There is no waterfall to pay for it: the chunk is requested on this
+ * component's first render, long before anyone presses the button.
+ */
+const AssistantPanel = lazy(async () => ({
+  default: (await import("@/components/assistant-panel")).AssistantPanel,
+}));
 
 /**
  * The signed-in shell: the canvas is the page, and everything else floats over
@@ -49,8 +61,11 @@ export function WorkspacePage({
       </div>
 
       {/* Mounted regardless of `assistantOpen` so the conversation survives
-          closing and reopening the panel. */}
-      <AssistantPanel />
+          closing and reopening the panel — and, once its chunk lands, it stays
+          mounted, so the boundary only ever falls back on the first render. */}
+      <Suspense fallback={null}>
+        <AssistantPanel />
+      </Suspense>
 
       {!activeMindmap && (
         <div className="animate-fade-in pointer-events-none absolute inset-0 flex items-center justify-center p-4">

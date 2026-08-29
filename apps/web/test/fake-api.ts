@@ -19,10 +19,17 @@ export function createFakeApi({
   mindmaps: initialMindmaps = [],
   conversations: initialConversations = [],
   reply = "Done.",
+  tool,
 }: {
   mindmaps?: Mindmap[];
   conversations?: Conversation[];
   reply?: string;
+  /**
+   * A server-side tool call to stream ahead of the reply, the way the real
+   * chat route does. `create_mindmap` also writes the mindmap into this store,
+   * since the panel invalidates the list on the strength of the call.
+   */
+  tool?: { name: string; title?: string };
 } = {}) {
   let mindmaps = structuredClone(initialMindmaps);
   let conversations = structuredClone(initialConversations);
@@ -147,6 +154,30 @@ export function createFakeApi({
         (conversation) => conversation._id === body.conversationId,
       );
       if (index === -1) return json({ message: "Conversation not found" }, 404);
+
+      // The real tools write to Mongo before the turn finishes streaming, so
+      // the mindmap is here by the time the panel refetches the list.
+      let toolCall;
+      if (tool) {
+        const title = tool.title ?? "Untitled";
+        sequence += 1;
+        const now = new Date().toISOString();
+        const created: Mindmap = {
+          _id: `mindmap-${sequence}`,
+          ownerId: "user-1",
+          title,
+          nodes: [{ id: "root", title, x: 0, y: 0 }],
+          edges: [],
+          createdAt: now,
+          updatedAt: now,
+        };
+        mindmaps = [created, ...mindmaps];
+        toolCall = {
+          name: tool.name,
+          output: { mindmapId: created._id, summary: `Created “${title}”` },
+        };
+      }
+
       conversations[index] = {
         ...conversations[index],
         messages: [
@@ -155,7 +186,7 @@ export function createFakeApi({
         ] as Conversation["messages"],
         updatedAt: new Date().toISOString(),
       };
-      return uiMessageStream(reply);
+      return uiMessageStream(reply, toolCall);
     }
 
     return json({ message: `Unhandled ${request.method} ${pathname}` }, 500);
@@ -212,10 +243,33 @@ function json(body: unknown, status = 200) {
 }
 
 /** The AI SDK's UI message stream: SSE-framed chunks, `[DONE]` to close. */
-function uiMessageStream(text: string) {
+function uiMessageStream(
+  text: string,
+  tool?: { name: string; output: unknown },
+) {
   const chunks = [
     { type: "start", messageId: "assistant-1" },
     { type: "start-step" },
+    ...(tool
+      ? [
+          {
+            type: "tool-input-start",
+            toolCallId: "call-1",
+            toolName: tool.name,
+          },
+          {
+            type: "tool-input-available",
+            toolCallId: "call-1",
+            toolName: tool.name,
+            input: {},
+          },
+          {
+            type: "tool-output-available",
+            toolCallId: "call-1",
+            output: tool.output,
+          },
+        ]
+      : []),
     { type: "text-start", id: "0" },
     { type: "text-delta", id: "0", delta: text },
     { type: "text-end", id: "0" },
