@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Lint, typecheck, test, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      # Only the contract check needs it: generate-openapi.ts boots the real
+      # AppModule, and MongooseModule.forRoot awaits a connection before the
+      # module graph is ready, so a missing database is a hang rather than a
+      # skipped step. Pinned to the digest docker-compose.yml runs locally.
+      mongo:
+        image: mongo:8@sha256:e0ce8c35124d4a9f9785532d1f268f39e9728ffa1cb38f46fa482436424c4bd3
+        ports:
+          # The port apps/api/.env.example defaults to, so nothing has to be told.
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out the pull request
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      # From the root, so turbo builds @mindmap/shared first — apps/api and
+      # apps/web both typecheck against its dist, and a stale one checks the
+      # wrong thing.
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # The browser project is the `e2e` job below; these need neither a
+      # database nor Chromium.
+      - name: Test
+        run: pnpm test:spec
+
+      - name: Build
+        run: pnpm build
+
+      # openapi.json and api-types.d.ts are generated and committed, so a route,
+      # DTO, or response shape can change without them — and the web app would
+      # then be typed against an API that no longer exists. Regenerating and
+      # diffing is the only thing that notices.
+      - name: Check the generated API contract is current
+        env:
+          MONGODB_URI: mongodb://localhost:27017/mindmap-ci
+          BETTER_AUTH_SECRET: ci-only-secret-not-used-to-sign-anything-real
+        run: |
+          pnpm openapi
+          git diff --exit-code --stat -- \
+            apps/api/openapi.json apps/web/src/lib/api-types.d.ts \
+          || {
+            echo "::error::openapi.json or api-types.d.ts is stale. Run 'pnpm openapi' and commit the result."
+            exit 1
+          }
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the pull request
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Chromium only — web:e2e declares one browser instance, and pulling three
+      # would cost more than the tests do. Deliberately without `--with-deps`:
+      # every library Chromium links against is already on ubuntu-latest, and
+      # the flag's real effect is installing font packages from the Ubuntu
+      # mirror that these assertions (getByRole, getByText) never read.
+      - name: Install Chromium
+        timeout-minutes: 5
+        run: pnpm test:install-browser
+
+      # api:e2e drives the Nest HTTP boundary with mocked services and web:e2e
+      # uses an in-memory API boundary, so neither needs MongoDB.
+      - name: Run the end-to-end suite
+        run: pnpm test:e2e

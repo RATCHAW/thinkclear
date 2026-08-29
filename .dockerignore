@@ -1,6 +1,38 @@
+# pnpm's node_modules is a symlink farm into the local store; copying it in
+# would clobber the install the image does for itself.
+node_modules
 **/node_modules
+dist
 **/dist
+.turbo
 **/.turbo
-**/.env
+
 .git
+.github
+.agents
+.claude
 .context
+**/.context
+
+# Nothing secret is ever built into an image. Production configuration is
+# environment, set by Coolify.
+.env
+.env.*
+**/.env
+**/.env.*
+.npmrc
+*.local
+*.key
+*.pem
+*.p12
+*.pfx
+*credentials*.json
+*service-account*.json
+
+coverage
+playwright-report
+test-results
+CLAUDE.md
+DESIGN.md
+skills-lock.json
+.DS_Store

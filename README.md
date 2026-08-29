@@ -82,6 +82,8 @@ markdown note on any topic. Add it with nothing but the URL:
 
 ```bash
 claude mcp add --transport http mindmap http://localhost:5173/api/mcp
+# deployed:
+claude mcp add --transport http thinkclear https://app.thinkclear.xyz/api/mcp
 ```
 
 The first call comes back `401` with an RFC 9728 `WWW-Authenticate` challenge;
@@ -120,6 +122,29 @@ Builds the api and web images and runs everything in containers:
 docker compose --profile full up --build
 # web on http://localhost:5173, api on http://localhost:3000
 ```
+
+This is the deployed topology in miniature: nginx serves the built SPA and
+proxies `/api` and `/.well-known` to the API, so the whole app answers on one
+origin the way it does in production.
+
+## Deployment
+
+[`DEPLOYMENT.md`](./DEPLOYMENT.md) is the guide. In short: the app goes to
+**Vercel** at `app.thinkclear.xyz`, the API to a **VPS through Coolify** at
+`api.thinkclear.xyz`, and Vercel's rewrites keep the two on one origin — which
+the session cookie, Better Auth's OAuth redirects, and MCP's root-level
+discovery all depend on. (`thinkclear.xyz` is a separate landing app, deployed
+on its own.)
+
+| Workflow | |
+|---|---|
+| `.github/workflows/ci.yml` | format, lint, typecheck, tests, build, and a check that `openapi.json` / `api-types.d.ts` are not stale |
+| `.github/workflows/deploy.yml` | the only thing that deploys the API — revalidates, pins Coolify to the tested commit, deploys, then verifies `/api/health` |
+| `.github/workflows/security.yml` | secret, workflow, dependency, and container scans |
+
+`GET /api/health` is the probe both Docker and Coolify read. It answers 503
+while Mongo is unreachable, so a container that started without its database is
+reported as a failed rollout rather than a working one.
 
 ## Design system
 

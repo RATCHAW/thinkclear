@@ -1,6 +1,37 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/api/health": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The API is up but its database is not reachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "health"
+        ]
+      }
+    },
     "/api/me": {
       "get": {
         "operationId": "MeController_me",
@@ -426,6 +457,30 @@
       }
     },
     "schemas": {
+      "HealthResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          },
+          "database": {
+            "type": "string",
+            "description": "The Mongo connection's state",
+            "example": "connected"
+          },
+          "uptime": {
+            "type": "number",
+            "description": "Seconds since this process started",
+            "example": 1837
+          }
+        },
+        "required": [
+          "status",
+          "database",
+          "uptime"
+        ]
+      },
       "MeUserDto": {
         "type": "object",
         "properties": {
