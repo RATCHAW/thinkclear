@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, LogOut, PanelLeft, Plus, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { MindmapRow, type RowMode } from "@/components/mindmap-row";
+import { useDeferredRowDelete, type RowMode } from "@/components/list-row";
+import { MindmapRow } from "@/components/mindmap-row";
 import {
   useActiveMindmap,
   useCreateMindmap,
@@ -23,9 +24,6 @@ import {
 } from "@/hooks/use-mindmaps";
 import { signOut } from "@/lib/auth-client";
 import { useUiStore } from "@/stores/ui-store";
-
-/** How long a deleted row gets to animate out before it leaves the list. */
-const ROW_EXIT_MS = 160;
 
 /**
  * The mindmap library: a floating sheet hung off a trigger in the top-left of
@@ -94,10 +92,9 @@ function LibraryPanel({
   const [editing, setEditing] = useState<{ id: string; mode: RowMode } | null>(
     null,
   );
-  const [leavingId, setLeavingId] = useState<string | null>(null);
-  const exitTimer = useRef<number | undefined>(undefined);
-
-  useEffect(() => () => window.clearTimeout(exitTimer.current), []);
+  const { leavingId, requestDelete } = useDeferredRowDelete((id) =>
+    deleteMindmap.mutate(id),
+  );
 
   useEffect(() => {
     if (!open) setEditing(null);
@@ -115,15 +112,9 @@ function LibraryPanel({
     });
   }
 
-  // The delete is optimistic, so the row would otherwise vanish under the
-  // cursor mid-click. Letting it animate out first costs 160ms nobody waits on.
   function handleDelete(id: string) {
     setEditing(null);
-    setLeavingId(id);
-    exitTimer.current = window.setTimeout(() => {
-      setLeavingId(null);
-      deleteMindmap.mutate(id);
-    }, ROW_EXIT_MS);
+    requestDelete(id);
   }
 
   return (

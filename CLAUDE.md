@@ -92,33 +92,39 @@ same Mongo database via its own `MongoClient`. `main.ts` creates the app with
 re-adds parsers for everything else. Don't re-enable the global body parser.
 
 Every resource route takes `@Session() session: UserSession` and passes
-`session.user.id` into the service. In `MindmapsService`, **every query is scoped
-by `ownerId`** and a miss goes through `orNotFound()`, so another user's document
-and a nonexistent one are both a 404. Invalid ObjectIds short-circuit there too
-(otherwise Mongoose's CastError becomes a 500). Follow that shape for new
-resources — no service method should read a document by `_id` alone.
+`session.user.id` into the service. In `MindmapsService` and
+`ConversationsService`, **every query is scoped by `ownerId`** and a miss goes
+through `orNotFound()`, so another user's document and a nonexistent one are
+both a 404. Invalid ObjectIds short-circuit there too (otherwise Mongoose's
+CastError becomes a 500). Follow that shape for new resources — no service
+method should read a document by `_id` alone.
 
-### AI chat edits mindmaps server-side
+### The assistant is app-level, not canvas-level
 
 `POST /api/chat` (apps/api/src/ai) streams an AI SDK UI-message response from
 `streamText` with tools. The tools live in `MindmapToolsService` and call
-`MindmapsService`, so ownership scoping and `findMindmapGraphIssues` apply to
-AI writes exactly as to HTTP ones — this is deliberate so a future MCP server
-can reuse the same service without the chat transport. Tool errors are
-returned to the model as data (`{ error, issues }`), not thrown, so it can
-repair a bad edit in one round trip. Models are reached through LLM Gateway
-(`createGateway` from the `ai` package, same wiring as vivace's coach):
-`LLM_GATEWAY_API_KEY` in `apps/api/.env` is required (503 without it), the
-model comes from `AI_CHAT_MODEL` written vendor/model (default
-`deepseek/deepseek-v4-flash`), and `LLM_GATEWAY_URL` overrides the endpoint
-for a self-hosted gateway.
+`MindmapsService`, so the assistant does the **whole mindmap CRUD surface** —
+list, read, create, rename, delete, plus topic edits — under the same
+ownership scoping and `findMindmapGraphIssues` checks as the HTTP routes. That
+is deliberate so a future MCP server can reuse the same service without the
+chat transport. Tool errors are returned to the model as data
+(`{ error, issues }`), not thrown, so it can repair a bad edit in one round
+trip. Models are reached through LLM Gateway (`createGateway` from the `ai`
+package, same wiring as vivace's coach): `LLM_GATEWAY_API_KEY` in
+`apps/api/.env` is required (503 without it), the model comes from
+`AI_CHAT_MODEL` written vendor/model (default `deepseek/deepseek-v4-flash`),
+and `LLM_GATEWAY_URL` overrides the endpoint for a self-hosted gateway.
+
+The open mindmap is **context, not scope**: `mindmapId` in the request body
+only tells the system prompt what "this mindmap" resolves to. The assistant
+works with nothing open.
 
 The chat route is documented in Swagger but the web client calls it through
 the AI SDK's `DefaultChatTransport` (plain fetch) — an SSE stream can't ride
 the generated openapi-fetch client. `MUTATING_CHAT_TOOLS` in
 `packages/shared/src/chat.ts` is the web ↔ api contract for which tool names
-write to the database: the chat panel invalidates the mindmap query when one
-finishes, and the canvas reseeds via the `updatedAt` check below.
+write to the database: the assistant panel invalidates the mindmap query when
+one finishes, and the canvas reseeds via the `updatedAt` check below.
 
 The canvas' seed-once rule has one exception for this: `MindmapEditor` tracks
 the `updatedAt` it seeded from (advanced by its own saves) and, when the
@@ -126,21 +132,50 @@ fetched document carries an `updatedAt` it didn't produce, reseeds React Flow
 state and drops any pending autosave — otherwise the debounced PATCH would
 overwrite the server-side edit with the stale local graph.
 
-The chat panel (`components/mindmap-chat.tsx`) is built from AI SDK Elements
-(`components/ai-elements/`, vendored source installed via the shadcn
-registry) restyled with the design-system tokens; it stays mounted so the
-conversation survives closing the panel.
+### Chat history is a real resource
+
+Conversations live in `apps/api/src/conversations` with full CRUD
+(`/api/conversations`), and `conversationId` is **required** on `POST
+/api/chat` — there is no such thing as an unsaved chat. The web client creates
+the conversation (titled from the first message via
+`conversationTitleFromMessage` in shared) before sending, so the id round trip
+is a plain REST call rather than something smuggled through the stream.
+
+The chat route writes twice per turn: the incoming messages up front, so a
+failed or abandoned generation still leaves the question in the history, and
+the whole turn again from `toUIMessageStream`'s `onEnd`. `messages` is stored
+as opaque Mixed documents because the `UIMessage` shape belongs to the `ai`
+package; `MAX_CONVERSATION_MESSAGES` bounds both what is stored and what
+`chatRequestSchema` will accept, so history can always be replayed.
+
+The list route projects `messages` away — `ConversationSummaryDto` vs
+`ConversationDto` — and sorts by `updatedAt`, which every turn bumps.
+
+`components/assistant-panel.tsx` (AI SDK Elements from
+`components/ai-elements/`, vendored via the shadcn registry, restyled with the
+design-system tokens) stays mounted so the conversation survives closing the
+panel. It never remounts `useChat`; switching conversations calls
+`setMessages` from the fetched document, tracked by a `seededId` so the
+conversation adopted mid-send is not reseeded over its own live stream.
+`components/assistant-history.tsx` is a layer *over* the chat rather than a
+replacement for it, for the same reason. Both editable lists — the library and
+history — share `components/list-row.tsx`.
 
 ### Web state split
 
 - **Server state → React Query.** `apps/web/src/hooks/use-mindmaps.ts` owns all
-  mindmap fetching/mutation. Rename and delete are optimistic with rollback;
-  the canvas autosave writes the response straight into the list cache instead
-  of invalidating, since it fires on a debounce.
+  mindmap fetching/mutation, `hooks/use-conversations.ts` all chat history.
+  Rename and delete are optimistic with rollback; the canvas autosave writes
+  the response straight into the list cache instead of invalidating, since it
+  fires on a debounce. `conversationKeys.list` and `conversationKeys.detail`
+  are deliberately siblings, not parent and child — every finished turn
+  invalidates the list, and a detail nested under that prefix would refetch on
+  the same beat and race the live `useChat` messages.
 - **UI-only state → zustand** (`stores/ui-store.ts`). Nothing fetched belongs
-  here. `selectedMindmapId` is intentionally never reconciled against the
-  server — `useActiveMindmap()` resolves it against the fetched list, so a
-  deleted mindmap's id is inert rather than a dangling reference.
+  here. `selectedMindmapId` and `activeConversationId` are intentionally never
+  reconciled against the server — `useActiveMindmap()` resolves the former
+  against the fetched list, so a deleted mindmap's or conversation's id is
+  inert rather than a dangling reference.
 
 The canvas (`components/mindmap-canvas.tsx`) is keyed by mindmap id so switching
 maps remounts the editor; React Flow state is seeded once from the fetched

@@ -8,10 +8,26 @@ const message = (over: object = {}) => ({
   ...over,
 });
 
+/** A minimal valid body, with one field swapped out per assertion. */
+const body = (over: object = {}) =>
+  chatRequestSchema.parse({
+    conversationId: "conversation-1",
+    messages: [message()],
+    ...over,
+  });
+
+const reject = (over: object) =>
+  !chatRequestSchema.safeParse({
+    conversationId: "conversation-1",
+    messages: [message()],
+    ...over,
+  }).success;
+
 describe("chatRequestSchema", () => {
   it("accepts a useChat body and passes unknown part fields through", () => {
     const parsed = chatRequestSchema.parse({
       id: "chat-1",
+      conversationId: "conversation-1",
       mindmapId: "abc",
       messages: [
         message(),
@@ -30,34 +46,34 @@ describe("chatRequestSchema", () => {
       ],
     });
 
+    expect(parsed.conversationId).toBe("conversation-1");
     expect(parsed.mindmapId).toBe("abc");
     expect(parsed.messages[1].parts[0]).toMatchObject({ toolCallId: "t1" });
   });
 
   it("allows the mindmap context to be absent or null", () => {
-    expect(
-      chatRequestSchema.parse({ messages: [message()] }).mindmapId,
-    ).toBeUndefined();
-    expect(
-      chatRequestSchema.parse({ mindmapId: null, messages: [message()] })
-        .mindmapId,
-    ).toBeNull();
+    expect(body().mindmapId).toBeUndefined();
+    expect(body({ mindmapId: null }).mindmapId).toBeNull();
   });
 
-  it("rejects an empty conversation and unknown roles", () => {
-    expect(chatRequestSchema.safeParse({ messages: [] }).success).toBe(false);
-    expect(
-      chatRequestSchema.safeParse({ messages: [message({ role: "tool" })] })
-        .success,
-    ).toBe(false);
+  it("requires a conversation to append the turn to", () => {
+    // Every turn is persisted, so there is no such thing as a chat that is not
+    // part of the user's history.
+    expect(chatRequestSchema.safeParse({ messages: [message()] }).success).toBe(
+      false,
+    );
+    expect(reject({ conversationId: "" })).toBe(true);
+  });
+
+  it("rejects an empty message list and unknown roles", () => {
+    expect(reject({ messages: [] })).toBe(true);
+    expect(reject({ messages: [message({ role: "tool" })] })).toBe(true);
   });
 
   it("rejects messages without parts", () => {
     expect(
-      chatRequestSchema.safeParse({
-        messages: [{ id: "m1", role: "user", content: "legacy shape" }],
-      }).success,
-    ).toBe(false);
+      reject({ messages: [{ id: "m1", role: "user", content: "legacy" }] }),
+    ).toBe(true);
   });
 
   it("names only tools that exist on the server", () => {

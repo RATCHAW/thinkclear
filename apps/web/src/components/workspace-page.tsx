@@ -1,7 +1,7 @@
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AssistantPanel } from "@/components/assistant-panel";
 import { MindmapCanvas } from "@/components/mindmap-canvas";
-import { MindmapChat } from "@/components/mindmap-chat";
 import { MindmapLibrary } from "@/components/mindmap-library";
 import { useActiveMindmap } from "@/hooks/use-mindmaps";
 import { useUiStore } from "@/stores/ui-store";
@@ -10,6 +10,10 @@ import { useUiStore } from "@/stores/ui-store";
  * The signed-in shell: the canvas is the page, and everything else floats over
  * it. Controls sit in a top strip that is itself click-through, so the canvas
  * keeps every pixel it isn't actually covering.
+ *
+ * Both floating surfaces are app-level rather than canvas-level — the library
+ * on the left owns every mindmap, and the assistant on the right can act on
+ * every mindmap — so they stay reachable whether or not a map is open.
  */
 export function WorkspacePage({
   user,
@@ -18,8 +22,8 @@ export function WorkspacePage({
 }) {
   const activeMindmap = useActiveMindmap();
   const setLibraryOpen = useUiStore((state) => state.setLibraryOpen);
-  const chatOpen = useUiStore((state) => state.chatOpen);
-  const setChatOpen = useUiStore((state) => state.setChatOpen);
+  const assistantOpen = useUiStore((state) => state.assistantOpen);
+  const setAssistantOpen = useUiStore((state) => state.setAssistantOpen);
 
   return (
     <div className="relative h-svh w-full overflow-hidden">
@@ -30,10 +34,10 @@ export function WorkspacePage({
           <MindmapLibrary user={user} />
         </div>
         {/* Same nav-control treatment as the library trigger on the left. */}
-        {!chatOpen && (
+        {!assistantOpen && (
           <button
             type="button"
-            onClick={() => setChatOpen(true)}
+            onClick={() => setAssistantOpen(true)}
             className="pointer-events-auto inline-flex h-11 items-center gap-2 rounded-md border border-hairline bg-paper px-4 outline-none transition-[color,background-color,border-color,transform] duration-[160ms] ease-out-strong hover:bg-cloud active:scale-[0.97] active:bg-fog focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Sparkles className="size-4 shrink-0 text-primary" />
@@ -42,9 +46,9 @@ export function WorkspacePage({
         )}
       </div>
 
-      {/* Mounted regardless of `chatOpen` so the conversation survives
+      {/* Mounted regardless of `assistantOpen` so the conversation survives
           closing and reopening the panel. */}
-      <MindmapChat />
+      <AssistantPanel />
 
       {!activeMindmap && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-4">

@@ -6,21 +6,16 @@ import {
   rowEnterDelay,
   type RowMode,
 } from "@/components/list-row";
-import type { Mindmap } from "@/hooks/use-mindmaps";
-import { cn } from "@/lib/utils";
-
-export type { RowMode };
+import type { ConversationSummary } from "@/hooks/use-conversations";
+import { cn, formatRelativeTime } from "@/lib/utils";
 
 /**
- * One mindmap in the library list, built from the shared row vocabulary in
- * `list-row.tsx`.
- *
- * `mode` is owned by the list, not by the row: only one row can be mid-edit at
- * a time, and the sheet needs to know an edit is open so Escape cancels the
- * edit instead of closing the whole panel.
+ * One chat in the assistant's history, built from the same row vocabulary as
+ * the mindmap library so both lists behave identically: tap to open, pencil to
+ * rename in place, bin to confirm and delete in place.
  */
-export function MindmapRow({
-  mindmap,
+export function ConversationRow({
+  conversation,
   active,
   index,
   leaving,
@@ -30,7 +25,7 @@ export function MindmapRow({
   onRename,
   onDelete,
 }: {
-  mindmap: Mindmap;
+  conversation: ConversationSummary;
   active: boolean;
   index: number;
   leaving: boolean;
@@ -50,17 +45,17 @@ export function MindmapRow({
     >
       {mode === "confirming-delete" ? (
         <RowConfirmDelete
-          title={mindmap.title}
+          title={conversation.title}
           onCancel={() => onModeChange(null)}
           onConfirm={onDelete}
         />
       ) : mode === "renaming" ? (
         <RowRenameField
-          title={mindmap.title}
-          label="Mindmap title"
+          title={conversation.title}
+          label="Chat title"
           onCommit={(title) => {
             onModeChange(null);
-            if (title !== mindmap.title) onRename(title);
+            if (title !== conversation.title) onRename(title);
           }}
         />
       ) : (
@@ -73,27 +68,38 @@ export function MindmapRow({
           <button
             type="button"
             onClick={onSelect}
+            // Named explicitly because the row shows a last-used time next to
+            // the title: "Earlier chat 21h" is not what this button does.
+            aria-label={`Open ${conversation.title}`}
             className={cn(
-              "min-w-0 flex-1 truncate rounded-lg px-3 text-left text-body-md outline-none",
+              "flex min-w-0 flex-1 items-baseline gap-2 rounded-lg px-3 text-left outline-none",
               "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-              active && "text-body-emphasis",
             )}
           >
-            {mindmap.title}
+            <span
+              className={cn(
+                "min-w-0 flex-1 truncate text-body-md",
+                active && "text-body-emphasis",
+              )}
+            >
+              {conversation.title}
+            </span>
+            {/* Last-used time, not a full date: in a history list the only
+                question it answers is "how far back was this". */}
+            <span className="shrink-0 text-caption-sm text-graphite tabular-nums">
+              {formatRelativeTime(conversation.updatedAt)}
+            </span>
           </button>
 
-          {/* Kept in the layout at all times. Hover-revealed actions are
-              unreachable on touch, and fading them in on :hover leaves them
-              stuck visible after a tap; low contrast does the hiding instead. */}
           <div className="flex shrink-0 items-center">
             <RowAction
-              label={`Rename ${mindmap.title}`}
+              label={`Rename ${conversation.title}`}
               onClick={() => onModeChange("renaming")}
             >
               <Pencil className="size-4" />
             </RowAction>
             <RowAction
-              label={`Delete ${mindmap.title}`}
+              label={`Delete ${conversation.title}`}
               destructive
               onClick={() => onModeChange("confirming-delete")}
             >

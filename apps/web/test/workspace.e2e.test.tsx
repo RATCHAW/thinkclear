@@ -5,7 +5,7 @@ import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react/pure";
 import { WorkspacePage } from "@/components/workspace-page";
 import { useUiStore } from "@/stores/ui-store";
-import { createFakeMindmapApi, mindmapFixture } from "./fake-mindmap-api";
+import { createFakeApi, mindmapFixture } from "./fake-api";
 
 const auth = vi.hoisted(() => ({ signOut: vi.fn() }));
 
@@ -28,7 +28,7 @@ describe("mindmap workspace journey", () => {
   });
 
   test("creates, selects, renames, and deletes a mindmap", async () => {
-    const api = createFakeMindmapApi();
+    const api = createFakeApi();
     vi.stubGlobal("fetch", vi.fn(api.fetch));
     const screen = await render(<WorkspacePage user={user} />, {
       wrapper: testProviders(),
@@ -72,7 +72,7 @@ describe("mindmap workspace journey", () => {
   });
 
   test("edits a branch and autosaves the graph", async () => {
-    const api = createFakeMindmapApi([mindmapFixture()]);
+    const api = createFakeApi({ mindmaps: [mindmapFixture()] });
     vi.stubGlobal("fetch", vi.fn(api.fetch));
     useUiStore.setState({ selectedMindmapId: "mindmap-1" });
     const screen = await render(<WorkspacePage user={user} />, {
