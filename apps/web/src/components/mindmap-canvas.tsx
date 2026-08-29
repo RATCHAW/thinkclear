@@ -29,6 +29,7 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { animate, useReducedMotion } from "motion/react";
 import { Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
   buildTree,
@@ -46,36 +47,90 @@ import {
 /** How long the canvas stays quiet after the last change before persisting. */
 const AUTOSAVE_MS = 800;
 
+/** How long the outgoing map dissolves for before the next one is mounted. */
+const SWITCH_OUT_MS = 140;
+/** How long the tree takes to glide from one layout to the next. */
+const RELAYOUT_MS = 260;
+/** Gap between successive topics fading in after an assistant edit. */
+const TOPIC_STAGGER_MS = 45;
+/** Cap on that stagger, so a twenty-topic branch doesn't take a second. */
+const TOPIC_STAGGER_STEPS = 5;
+/** How long the viewport takes to reframe around an assistant edit. */
+const REFRAME_MS = 300;
+/** `--ease-in-out-strong`: movement across the screen, per DESIGN.md › Motion. */
+const EASE_IN_OUT_STRONG = [0.77, 0, 0.175, 1] as const;
+
 // The canvas borrows roadmap.sh's palette instead of DESIGN.md: yellow title
 // pills over blue connectors is the entire visual identity of the reference,
 // and it reads as content on the white canvas rather than as app chrome.
 const EDGE_COLOR = "#2b78e4";
 const EDGE_STYLE = { stroke: EDGE_COLOR, strokeWidth: 2 };
 
-type TopicNode = Node<{ title: string; startEditing?: boolean }, "topic">;
+type TopicNode = Node<
+  {
+    title: string;
+    startEditing?: boolean;
+    /**
+     * Set on topics an external edit added. They render invisible while
+     * `"pending"` and fade in when the relayout that made room for them
+     * releases them to `"in"` — see `MindmapEditor`'s layout effect.
+     */
+    enter?: "pending" | "in";
+    enterDelay?: number;
+  },
+  "topic"
+>;
 
 export function MindmapCanvas() {
   const activeMindmap = useActiveMindmap();
+  // Swapping in the next map is deferred by one dissolve: the outgoing canvas
+  // fades out first, so a switch is something the user watches happen rather
+  // than a frame in which the whole page is a different mindmap.
+  const [shown, setShown] = useState(activeMindmap);
+  useEffect(() => {
+    if (activeMindmap?._id === shown?._id) {
+      // Same map, newer document — an autosave response or an assistant edit.
+      // The editor needs that one immediately; only a *switch* waits.
+      if (activeMindmap !== shown) setShown(activeMindmap);
+      return;
+    }
+    // Nothing on screen to dissolve — the first map of the session arrives
+    // straight into its own fade-in.
+    if (!shown) {
+      setShown(activeMindmap);
+      return;
+    }
+    const timer = window.setTimeout(
+      () => setShown(activeMindmap),
+      SWITCH_OUT_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [activeMindmap, shown]);
+  const leaving = Boolean(shown) && activeMindmap?._id !== shown?._id;
 
-  if (!activeMindmap) {
-    // The idle backdrop behind the "No mindmap open" overlay.
-    return (
-      <div className="h-full w-full">
+  return (
+    // Keyed by id so switching mindmaps remounts the editor — its React Flow
+    // state is initialized once from the fetched document and then owned
+    // locally, which is what keeps background refetches from clobbering an
+    // edit in progress — and so the fade-in replays for the arriving map.
+    <div
+      key={shown?._id ?? "empty"}
+      className={cn(
+        "h-full w-full",
+        leaving ? "animate-canvas-out" : "animate-canvas-in",
+      )}
+    >
+      {shown ? (
+        <ReactFlowProvider key={shown._id}>
+          <MindmapEditor mindmap={shown} />
+        </ReactFlowProvider>
+      ) : (
+        // The idle backdrop behind the "No mindmap open" overlay.
         <ReactFlow nodes={[]} edges={[]}>
           <Background variant={BackgroundVariant.Dots} gap={24} />
         </ReactFlow>
-      </div>
-    );
-  }
-
-  return (
-    // Keyed by id so switching mindmaps remounts the editor: its React Flow
-    // state is initialized once from the fetched document and then owned
-    // locally, which is what keeps background refetches from clobbering an
-    // edit in progress.
-    <ReactFlowProvider key={activeMindmap._id}>
-      <MindmapEditor mindmap={activeMindmap} />
-    </ReactFlowProvider>
+      )}
+    </div>
   );
 }
 
@@ -83,7 +138,8 @@ const nodeTypes = { topic: TopicNodeView };
 const edgeTypes = { topic: TopicEdgeView };
 
 function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, fitView } = useReactFlow();
+  const reduceMotion = Boolean(useReducedMotion());
   const [nodes, setNodes, onNodesChange] = useNodesState(toFlowNodes(mindmap));
   const [edges, setEdges, onEdgesChange] = useEdgesState(toFlowEdges(mindmap));
   const save = useSaveMindmapGraph();
@@ -110,20 +166,26 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
   // seeded from, advanced by every save it makes itself. When the prop's
   // `updatedAt` moves past it, someone else wrote — see the reconcile effect.
   const syncedAt = useRef(mindmap.updatedAt);
+  // Where the running relayout is headed, while it is running. A save that
+  // lands mid-glide (the unmount flush, when a map is closed a few frames
+  // after an edit) must persist those positions rather than the interpolated
+  // ones — half-travelled x values can order siblings differently on reload.
+  const settling = useRef<Map<string, { x: number; y: number }> | null>(null);
 
   const flush = useCallback(() => {
     if (!pending.current) return;
     const { title } = pending.current;
     pending.current = null;
     const { nodes, edges } = graph.current;
+    const settled = settling.current;
     saveGraph(
       {
         id: mindmap._id,
         nodes: nodes.map((node) => ({
           id: node.id,
           title: node.data.title,
-          x: node.position.x,
-          y: node.position.y,
+          x: settled?.get(node.id)?.x ?? node.position.x,
+          y: settled?.get(node.id)?.y ?? node.position.y,
         })),
         edges: edges.map(({ id, source, target }) => ({ id, source, target })),
         ...(title ? { title } : {}),
@@ -143,12 +205,25 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
   // canvas. Local state reseeds from it and any pending autosave is dropped —
   // otherwise the debounced PATCH would overwrite the external edit with the
   // stale local graph a moment later.
+  //
+  // Such an edit is also the one change the user did not make with their own
+  // hands, so it is the one that has to be legible: topics it added are held
+  // invisible until the relayout below has opened a gap for them (nobody
+  // should watch a topic slide over from the position the tool seeded it at),
+  // and if the tree grew or shrank the viewport reframes around the result.
+  const reframe = useRef(false);
   useEffect(() => {
     if (mindmap.updatedAt === syncedAt.current) return;
     syncedAt.current = mindmap.updatedAt;
     pending.current = null;
     window.clearTimeout(timer.current);
-    const nodes = toFlowNodes(mindmap);
+    const known = new Set(graph.current.nodes.map((node) => node.id));
+    const nodes = toFlowNodes(mindmap).map((node) =>
+      known.has(node.id)
+        ? node
+        : { ...node, data: { ...node.data, enter: "pending" as const } },
+    );
+    reframe.current = nodes.length !== known.size;
     setNodes(nodes);
     setEdges(toFlowEdges(mindmap));
     syncedTitle.current = rootTitle(nodes) ?? mindmap.title;
@@ -165,13 +240,19 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
       title: title && title !== syncedTitle.current ? title : undefined,
     };
     if (pending.current.title) syncedTitle.current = pending.current.title;
+    // A glide is only walking the graph to positions it has already settled
+    // on, so its frames must not restart the debounce — otherwise every save
+    // waits out an animation. `flush` reads those positions from `settling`.
+    if (settling.current) return;
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(flush, AUTOSAVE_MS);
-    return () => window.clearTimeout(timer.current);
   }, [nodes, edges, flush]);
 
-  // Closing the map (or the whole workspace) mid-debounce still saves.
+  // Closing the map (or the whole workspace) mid-debounce still saves. The
+  // timer is cleared after that, not before: a cleanup on every graph change
+  // would cancel the debounce the frames above deliberately leave running.
   useEffect(() => () => flush(), [flush]);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
 
   // -- Static tree layout --------------------------------------------------
   // Nodes are never dragged: whenever the graph's structure (or a node's
@@ -186,13 +267,108 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
       .join(),
     edges.map((edge) => `${edge.source}>${edge.target}`).join(),
   ].join("|");
+  const laidOnce = useRef(false);
+  const glide = useRef<{ stop: () => void } | null>(null);
+  // Bumped every time a layout finishes, which is the beat the reframe below
+  // waits for. State rather than a ref because it has to schedule an effect.
+  const [settledPass, setSettledPass] = useState(0);
+  useEffect(() => () => glide.current?.stop(), []);
   useEffect(() => {
     const current = graph.current;
     if (current.nodes.some((node) => !node.measured?.width)) return;
     const laid = layoutGraph(current.nodes, current.edges);
-    if (laid.nodes !== current.nodes) setNodes(laid.nodes);
     if (laid.edges !== current.edges) setEdges(laid.edges);
-  }, [structureKey, setNodes, setEdges]);
+
+    const target = release(laid.nodes);
+    const to = new Map(target.map((node) => [node.id, node]));
+    const from = new Map(current.nodes.map((node) => [node.id, node.position]));
+    // Positions are interpolated in state rather than transitioned in CSS
+    // because React Flow redraws every connector from the node positions it
+    // is handed: move the nodes alone and the lines detach from them for the
+    // length of the animation. The updater form keeps whatever else happened
+    // to a node meanwhile — a selection, a rename — out of the tween's way.
+    const step = (t: number) =>
+      setNodes((nodes) => {
+        let changed = false;
+        const next = nodes.map((node) => {
+          const end = to.get(node.id);
+          const start = from.get(node.id);
+          if (!end || !start) return node;
+          if (t >= 1) {
+            if (
+              node.position.x === end.position.x &&
+              node.position.y === end.position.y &&
+              node.data === end.data
+            )
+              return node;
+            changed = true;
+            return { ...node, position: end.position, data: end.data };
+          }
+          changed = true;
+          return {
+            ...node,
+            position: {
+              x: start.x + (end.position.x - start.x) * t,
+              y: start.y + (end.position.y - start.y) * t,
+            },
+          };
+        });
+        return changed ? next : nodes;
+      });
+
+    // Only topics already on screen are worth gliding — the ones still held
+    // invisible have no travel anyone can see. The first pass is exempt too:
+    // it only corrects the stored positions the map painted with, which is
+    // not a change the user made.
+    const moved =
+      laidOnce.current &&
+      !reduceMotion &&
+      laid.nodes.some((node) => {
+        const start = from.get(node.id);
+        return (
+          node.data.enter !== "pending" &&
+          start &&
+          (start.x !== node.position.x || start.y !== node.position.y)
+        );
+      });
+    laidOnce.current = true;
+    glide.current?.stop();
+
+    if (!moved) {
+      settling.current = null;
+      step(1);
+      setSettledPass((pass) => pass + 1);
+      return;
+    }
+    settling.current = new Map(target.map((node) => [node.id, node.position]));
+    glide.current = animate(0, 1, {
+      duration: RELAYOUT_MS / 1000,
+      ease: EASE_IN_OUT_STRONG,
+      onUpdate: step,
+      onComplete: () => {
+        step(1);
+        setSettledPass((pass) => pass + 1);
+      },
+    });
+  }, [structureKey, reduceMotion, setNodes, setEdges]);
+
+  // Reframing waits for that settled beat instead of firing with the edit:
+  // fitView measures the positions React Flow has already been handed, which
+  // until the relayout lands are still the ones the assistant seeded.
+  useEffect(() => {
+    if (!settledPass) return;
+    // Cleared here rather than when the glide ends, so that the commit which
+    // lands the settled positions still counts as part of it — the autosave
+    // effect above reads this to decide whether to restart its debounce.
+    settling.current = null;
+    if (!reframe.current) return;
+    reframe.current = false;
+    void fitView({
+      duration: reduceMotion ? 0 : REFRAME_MS,
+      maxZoom: 1,
+      padding: 0.3,
+    });
+  }, [settledPass, fitView, reduceMotion]);
 
   // -- Graph editing -------------------------------------------------------
   // `canConnect` is the same rule the API enforces on save: only connections
@@ -435,12 +611,19 @@ function TopicNodeView({ id, data, selected }: NodeProps<TopicNode>) {
         setDraft(data.title);
         setEditing(true);
       }}
+      // A topic an external edit added stays invisible until the tree has
+      // made room for it, then fades in on its own beat.
+      style={
+        data.enterDelay ? { animationDelay: `${data.enterDelay}ms` } : undefined
+      }
       className={cn(
         "rounded-md border-2 border-ink-deep px-4 py-2 text-ink-deep",
         isRoot
           ? "bg-[#ffe600] text-body-emphasis"
           : "bg-[#ffe599] text-caption-bold",
         selected && "shadow-[0_0_0_3px_#c9e0fc]",
+        data.enter === "pending" && "opacity-0",
+        data.enter === "in" && "animate-topic-in",
       )}
     >
       {editing ? (
@@ -601,6 +784,32 @@ function makeEdge(source: string, target: string, id?: string): Edge {
 
 function rootTitle(nodes: TopicNode[]) {
   return nodes.find((node) => node.id === ROOT_NODE_ID)?.data.title;
+}
+
+/**
+ * Releases the topics an external edit added, now that they have been laid
+ * out: they fade in where they actually belong, one after the next down the
+ * branch, so a five-topic answer reads as five topics rather than one blink.
+ */
+function release(nodes: TopicNode[]): TopicNode[] {
+  const entering = nodes.filter((node) => node.data.enter === "pending");
+  if (!entering.length) return nodes;
+  const delays = new Map(
+    entering
+      .sort(
+        (a, b) => a.position.y - b.position.y || a.position.x - b.position.x,
+      )
+      .map((node, index) => [
+        node.id,
+        Math.min(index, TOPIC_STAGGER_STEPS) * TOPIC_STAGGER_MS,
+      ]),
+  );
+  return nodes.map((node) => {
+    const enterDelay = delays.get(node.id);
+    return enterDelay === undefined
+      ? node
+      : { ...node, data: { ...node.data, enter: "in" as const, enterDelay } };
+  });
 }
 
 // -- Tree layout -----------------------------------------------------------

@@ -53,7 +53,7 @@ export function WorkspacePage({
       <AssistantPanel />
 
       {!activeMindmap && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
+        <div className="animate-fade-in pointer-events-none absolute inset-0 flex items-center justify-center p-4">
           <div className="pointer-events-auto max-w-sm text-center">
             <h1 className="text-display-sm">No mindmap open</h1>
             <p className="mt-2 text-body-md text-graphite">

@@ -290,6 +290,9 @@
   --animate-row-in: row-in 220ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
   --animate-row-out: row-out 160ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
   --animate-fade-in: fade-in 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  --animate-canvas-in: canvas-in 240ms cubic-bezier(0.23, 1, 0.32, 1);
+  --animate-canvas-out: canvas-out 140ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  --animate-topic-in: topic-in 220ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
 }
 
 /* ---------------------------------------------------------------------------
@@ -343,6 +346,33 @@
   }
 }
 
+/* Switching mindmaps dissolves instead of cutting: the outgoing canvas leaves
+   the way the incoming one arrives, so the swap is something the user watches
+   happen rather than a frame in which the whole page is suddenly different.
+   The scale stays tiny — the canvas fills the window, and anything larger
+   reads as a zoom of the map itself. */
+@keyframes canvas-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+
+@keyframes canvas-out {
+  to {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+
+/* A topic the assistant added, released once the tree has made room for it. */
+@keyframes topic-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
 /* Reduced motion means fewer and gentler animations, not none: opacity still
    carries the enter/exit, only the travel is dropped. Redefining the keyframes
    is enough — no component needs to know. */
@@ -364,6 +394,21 @@
   }
   @keyframes row-out {
     to {
+      opacity: 0;
+    }
+  }
+  @keyframes canvas-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes canvas-out {
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes topic-in {
+    from {
       opacity: 0;
     }
   }
