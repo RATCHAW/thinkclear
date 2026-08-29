@@ -25,7 +25,7 @@ import {
   updateMindmapSchema,
   CreateMindmapInput,
   UpdateMindmapInput,
-} from "@mindmap/shared";
+} from "@thinkclear/shared";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { CreateMindmapDto, MindmapDto, UpdateMindmapDto } from "./mindmap.dto";
 import { MindmapsService } from "./mindmaps.service";

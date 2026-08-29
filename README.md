@@ -1,4 +1,4 @@
-# Mindmap
+# ThinkClear
 
 AI mindmap app monorepo — Turborepo + pnpm.
 
@@ -91,9 +91,9 @@ create, rename, reorganize, and delete your mindmaps, and read and write the
 markdown note on any topic. Add it with nothing but the URL:
 
 ```bash
-claude mcp add --transport http mindmap http://localhost:5173/api/mcp
+claude mcp add --transport http thinkclear http://localhost:5173/api/mcp
 # deployed: your own origin, the one APP_URL names
-claude mcp add --transport http mindmap https://<your-app-origin>/api/mcp
+claude mcp add --transport http thinkclear https://<your-app-origin>/api/mcp
 ```
 
 The first call comes back `401` with an RFC 9728 `WWW-Authenticate` challenge;

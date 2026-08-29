@@ -8,8 +8,8 @@ const DOCS_PATH = "docs";
 
 export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
   const config = new DocumentBuilder()
-    .setTitle("Mindmap API")
-    .setDescription("Mindmap app API")
+    .setTitle("ThinkClear API")
+    .setDescription("ThinkClear app API")
     .setVersion("0.0.1")
     .addCookieAuth("better-auth.session_token")
     .build();
@@ -36,7 +36,7 @@ function requireBasicAuth(user: string, password: string) {
       // and the docs become unreachable rather than protected.
       res.setHeader(
         "WWW-Authenticate",
-        'Basic realm="Mindmap API docs", charset="UTF-8"',
+        'Basic realm="ThinkClear API docs", charset="UTF-8"',
       );
       res.status(401).send("Authentication required");
     };

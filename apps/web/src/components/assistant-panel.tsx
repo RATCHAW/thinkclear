@@ -23,7 +23,7 @@ import {
   conversationTitleFromMessage,
   DEFAULT_CONVERSATION_TITLE,
   MUTATING_CHAT_TOOLS,
-} from "@mindmap/shared";
+} from "@thinkclear/shared";
 import {
   Conversation,
   ConversationContent,

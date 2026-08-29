@@ -1,4 +1,4 @@
-name: mindmap
+name: thinkclear
 
 services:
   mongo:
@@ -6,7 +6,7 @@ services:
     # against a different Mongo than the one on your machine is worth less than
     # the minutes it costs. Bump this and .github/workflows/*.yml together.
     image: mongo:8@sha256:e0ce8c35124d4a9f9785532d1f268f39e9728ffa1cb38f46fa482436424c4bd3
-    container_name: mindmap-mongo
+    container_name: thinkclear-mongo
     ports:
       - "27017:27017"
     volumes:
@@ -21,12 +21,12 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    container_name: mindmap-api
+    container_name: thinkclear-api
     profiles: ["full"]
     ports:
       - "3000:3000"
     environment:
-      MONGODB_URI: mongodb://mongo:27017/mindmap
+      MONGODB_URI: mongodb://mongo:27017/thinkclear
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-only-secret-change-me}
       # The origin users and MCP clients reach the app on — the web container,
       # which proxies /api here.
@@ -51,7 +51,7 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    container_name: mindmap-web
+    container_name: thinkclear-web
     profiles: ["full"]
     ports:
       - "5173:80"

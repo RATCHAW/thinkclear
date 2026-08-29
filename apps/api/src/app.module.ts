@@ -14,7 +14,7 @@ import { MindmapsModule } from "./mindmaps/mindmaps.module";
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     MongooseModule.forRoot(
-      process.env.MONGODB_URI ?? "mongodb://localhost:27017/mindmap",
+      process.env.MONGODB_URI ?? "mongodb://localhost:27017/thinkclear",
     ),
     AuthModule.forRoot({ auth }),
     MindmapsModule,

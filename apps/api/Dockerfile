@@ -13,12 +13,12 @@ WORKDIR /repo
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
-RUN pnpm install --frozen-lockfile --filter @mindmap/api...
+RUN pnpm install --frozen-lockfile --filter @thinkclear/api...
 
 COPY packages/shared packages/shared
 COPY apps/api apps/api
-# `apps/api` consumes @mindmap/shared from its `dist`, so shared builds first.
-RUN pnpm --filter @mindmap/shared build && pnpm --filter @mindmap/api build
+# `apps/api` consumes @thinkclear/shared from `dist`, so shared builds first.
+RUN pnpm --filter @thinkclear/shared build && pnpm --filter @thinkclear/api build
 
 FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS runtime
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
@@ -33,7 +33,7 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 RUN corepack enable \
-  && pnpm install --frozen-lockfile --prod --filter @mindmap/api... \
+  && pnpm install --frozen-lockfile --prod --filter @thinkclear/api... \
   # Nothing in the image installs packages after this line, and both of these
   # are network-facing tools running as root in a container that should have
   # neither.
@@ -44,8 +44,8 @@ RUN corepack enable \
     /usr/local/lib/node_modules/corepack \
     /usr/local/lib/node_modules/npm
 
-# pnpm has already linked apps/api/node_modules/@mindmap/shared at the workspace
-# directory; this is the build output that link resolves into.
+# pnpm has already linked apps/api/node_modules/@thinkclear/shared at the
+# workspace directory; this is the build output that link resolves into.
 COPY --from=build /repo/packages/shared/dist packages/shared/dist
 COPY --from=build /repo/apps/api/dist apps/api/dist
 

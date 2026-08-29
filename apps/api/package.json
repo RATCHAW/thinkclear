@@ -1,5 +1,5 @@
 {
-  "name": "@mindmap/api",
+  "name": "@thinkclear/api",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -12,7 +12,7 @@
   "dependencies": {
     "@better-auth/mcp": "1.7.2",
     "@better-auth/oauth-provider": "1.7.2",
-    "@mindmap/shared": "workspace:*",
+    "@thinkclear/shared": "workspace:*",
     "@modelcontextprotocol/node": "2.0.0",
     "@modelcontextprotocol/server": "2.0.0",
     "@nestjs/common": "^11.1.6",

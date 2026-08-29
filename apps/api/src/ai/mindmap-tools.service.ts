@@ -10,7 +10,7 @@ import {
   updateMindmapSchema,
   type MindmapEdge,
   type MindmapNode,
-} from "@mindmap/shared";
+} from "@thinkclear/shared";
 import { MindmapsService } from "../mindmaps/mindmaps.service";
 import type { MindmapDocument } from "../mindmaps/mindmap.schema";
 

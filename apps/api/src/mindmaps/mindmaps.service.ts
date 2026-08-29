@@ -11,7 +11,7 @@ import {
   type GraphEdgeRef,
   type GraphNodeRef,
   type UpdateMindmapInput,
-} from "@mindmap/shared";
+} from "@thinkclear/shared";
 import { Mindmap, MindmapDocument } from "./mindmap.schema";
 
 @Injectable()

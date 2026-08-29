@@ -18,11 +18,11 @@ import {
   isToolGranted,
   mcpScopeForTool,
   ROOT_NODE_ID,
-} from "@mindmap/shared";
+} from "@thinkclear/shared";
 import { MindmapToolsService } from "../ai/mindmap-tools.service";
 
 /** What the server calls itself in the `initialize` handshake. */
-const SERVER_INFO = { name: "mindmap", version: "1.0.0" } as const;
+const SERVER_INFO = { name: "thinkclear", version: "1.0.0" } as const;
 
 /**
  * Serves the mindmap tools over MCP.

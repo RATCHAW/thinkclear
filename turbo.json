@@ -18,7 +18,7 @@
       "outputs": ["openapi.json"]
     },
     "generate:types": {
-      "dependsOn": ["@mindmap/api#openapi"],
+      "dependsOn": ["@thinkclear/api#openapi"],
       "outputs": ["src/lib/api-types.d.ts"]
     }
   }

@@ -28,7 +28,7 @@ import {
   validateUIMessages,
   type UIMessage,
 } from "ai";
-import { chatRequestSchema, type ChatRequestInput } from "@mindmap/shared";
+import { chatRequestSchema, type ChatRequestInput } from "@thinkclear/shared";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { ConversationsService } from "../conversations/conversations.service";
 import { AiService } from "./ai.service";

@@ -30,13 +30,13 @@ Vitest Browser Mode. Install it once with `pnpm test:install-browser`
 if the local Playwright cache is empty. ESLint and Prettier are configured once
 at the repository root; formatting rules are disabled inside ESLint so the two
 tools do not compete. Run type checks from the root so turbo builds
-`@mindmap/shared` first;
+`@thinkclear/shared` first;
 `apps/api` and `apps/web` both consume it from `dist/`, so editing
 `packages/shared` and typechecking a single app in isolation will check against
 a stale build.
 
-Single-workspace commands: `pnpm --filter @mindmap/api <script>` (likewise
-`@mindmap/web`, `@mindmap/shared`).
+Single-workspace commands: `pnpm --filter @thinkclear/api <script>` (likewise
+`@thinkclear/web`, `@thinkclear/shared`).
 
 ## Dev servers
 
@@ -50,8 +50,8 @@ web :5173), so treat servers as a checked-out resource:
 - **If you start servers for a task** (verification, browser testing), stop
   them when the task is done and confirm the ports are free again. Don't leave
   background dev servers running at the end of a turn.
-- The `mindmap-mongo` Docker container is shared infra: leave it running if it
-  is already up, and leave it up even after stopping the app servers.
+- The `thinkclear-mongo` Docker container is shared infra: leave it running if
+  it is already up, and leave it up even after stopping the app servers.
 
 ## Architecture
 
