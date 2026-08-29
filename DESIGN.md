@@ -557,6 +557,22 @@ Sheet motion is CSS keyframes rather than transitions because Radix drives exit
 animations off `animationend`. Everywhere else — hover, press, row highlight —
 uses transitions, which retarget mid-flight instead of restarting.
 
+The canvas is the one place motion is choreographed rather than per-element,
+because it is where the whole page changes at once and neither change is one
+the user's hand is on:
+
+- **Switching mindmaps dissolves.** The outgoing map fades and settles back to
+  `scale(0.985)` over 140ms; the incoming one arrives the same way over 240ms
+  (`--animate-canvas-out` / `--animate-canvas-in`). The swap is deferred by
+  that first 140ms so the two never overlap.
+- **An assistant edit plays in three beats**: the tree glides to its new
+  layout over 260ms on `--ease-in-out-strong`, the viewport reframes around
+  the result over 300ms, and the new topics — held invisible until there was
+  somewhere to put them — fade in 45ms apart down the branch
+  (`--animate-topic-in`). Node positions are interpolated in React state
+  rather than transitioned in CSS: React Flow redraws every connector from the
+  positions it is handed, so moving the nodes alone detaches the lines.
+
 ### Three deviations, recorded
 
 1. **Hover states.** The spec documents only Default and Pressed. A pointer UI
