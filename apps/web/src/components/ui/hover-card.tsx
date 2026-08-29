@@ -30,7 +30,12 @@ function HoverCardContent({
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          "z-50 w-64 origin-(--radix-hover-card-content-transform-origin) rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-hidden data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
+          // Scales from the trigger rather than from its own middle — the card
+          // belongs to the thing under the pointer, and growing out of it is
+          // what says so. Motion is DESIGN.md › Motion: never from scale(0),
+          // ease-out both ways, and out faster than in.
+          "z-50 w-64 origin-(--radix-hover-card-content-transform-origin) rounded-xl border border-hairline bg-popover p-4 text-popover-foreground shadow-floating outline-hidden",
+          "data-[state=open]:animate-hover-card-in data-[state=closed]:animate-hover-card-out",
           className,
         )}
         {...props}

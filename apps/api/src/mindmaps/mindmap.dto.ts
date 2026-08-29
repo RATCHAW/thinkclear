@@ -20,6 +20,14 @@ export class MindmapNodeDto {
 
   @ApiProperty({ example: 0 })
   y: number;
+
+  @ApiPropertyOptional({
+    example: "Ship the **API** first, then the canvas.",
+    maxLength: 5000,
+    description:
+      "The topic's note, as markdown source. Omitted when the topic has no note — an empty string is not stored.",
+  })
+  note?: string;
 }
 
 export class MindmapEdgeDto {

@@ -21,6 +21,17 @@ const storedMindmap = () => ({
   ],
 });
 
+/** The same document with a note hanging off the "backend" topic. */
+const withNote = (note: string) => {
+  const doc = storedMindmap();
+  return {
+    ...doc,
+    nodes: doc.nodes.map((node) =>
+      node.id === "backend" ? { ...node, note } : node,
+    ),
+  };
+};
+
 /** Bare-bones ToolCallOptions; the tools never read it. */
 const callOptions = { toolCallId: "call-1", messages: [] } as never;
 
@@ -137,6 +148,80 @@ describe("MindmapToolsService", () => {
     expect(written.nodes).toContainEqual(
       expect.objectContaining({ id: "root", title: "Master plan" }),
     );
+  });
+
+  it("carries topic notes through an edit that has nothing to do with them", async () => {
+    // Every tool here reads the document and writes the whole node array
+    // back, so any field the read forgets is a field the next edit erases.
+    mindmaps.findOne.mockResolvedValue(withNote("Ship the **API** first."));
+
+    await tools.rename_topic!.execute!(
+      { mindmapId, nodeId: "root", title: "Master plan" },
+      callOptions,
+    );
+
+    const [, , written] = mindmaps.update.mock.calls[0];
+    expect(written.nodes).toContainEqual(
+      expect.objectContaining({
+        id: "backend",
+        note: "Ship the **API** first.",
+      }),
+    );
+  });
+
+  it("writes a topic's note, and clears it back to absent", async () => {
+    const result = (await tools.set_topic_note!.execute!(
+      { mindmapId, nodeId: "backend", note: "  # Plan\n\n- REST  " },
+      callOptions,
+    )) as { summary: string; outline: string };
+
+    expect(result.summary).toBe('Wrote a note on "Backend"');
+    const [, , written] = mindmaps.update.mock.calls[0];
+    expect(written.nodes).toContainEqual(
+      expect.objectContaining({ id: "backend", note: "# Plan\n\n- REST" }),
+    );
+    // The outline flags which topics carry one without spending context on
+    // the prose itself.
+    expect(result.outline).toContain("- Backend [backend] (note)");
+    expect(result.outline).toContain("- Roadmap [root]\n");
+
+    mindmaps.findOne.mockResolvedValue(withNote("# Plan"));
+    await tools.set_topic_note!.execute!(
+      { mindmapId, nodeId: "backend", note: "" },
+      callOptions,
+    );
+
+    const [, , cleared] = mindmaps.update.mock.calls[1];
+    expect(cleared.nodes).toContainEqual({
+      id: "backend",
+      title: "Backend",
+      x: 0,
+      y: 104,
+    });
+  });
+
+  it("reads a topic's note back, and reports an unknown topic without writing", async () => {
+    mindmaps.findOne.mockResolvedValue(withNote("# Plan"));
+
+    await expect(
+      tools.read_topic_note!.execute!(
+        { mindmapId, nodeId: "backend" },
+        callOptions,
+      ),
+    ).resolves.toMatchObject({ nodeId: "backend", note: "# Plan" });
+
+    // A topic with no note reads as empty rather than as an error.
+    await expect(
+      tools.read_topic_note!.execute!({ mindmapId, nodeId: "db" }, callOptions),
+    ).resolves.toMatchObject({ note: "" });
+
+    await expect(
+      tools.set_topic_note!.execute!(
+        { mindmapId, nodeId: "ghost", note: "Lost" },
+        callOptions,
+      ),
+    ).resolves.toMatchObject({ error: expect.stringContaining("ghost") });
+    expect(mindmaps.update).not.toHaveBeenCalled();
   });
 
   it("creates a mindmap with a whole topic tree in one call", async () => {

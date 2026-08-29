@@ -293,6 +293,9 @@
   --animate-canvas-in: canvas-in 240ms cubic-bezier(0.23, 1, 0.32, 1);
   --animate-canvas-out: canvas-out 140ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
   --animate-topic-in: topic-in 220ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+  --animate-hover-card-in: hover-card-in 150ms cubic-bezier(0.23, 1, 0.32, 1);
+  --animate-hover-card-out: hover-card-out 110ms cubic-bezier(0.23, 1, 0.32, 1)
+    forwards;
 }
 
 /* ---------------------------------------------------------------------------
@@ -373,6 +376,23 @@
   }
 }
 
+/* A note previewing under the pointer. The scale runs from the trigger's
+   corner — Radix hands the origin down — so the card grows out of the topic it
+   belongs to instead of appearing beside it. */
+@keyframes hover-card-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+@keyframes hover-card-out {
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
 /* Reduced motion means fewer and gentler animations, not none: opacity still
    carries the enter/exit, only the travel is dropped. Redefining the keyframes
    is enough — no component needs to know. */
@@ -412,6 +432,138 @@
       opacity: 0;
     }
   }
+  @keyframes hover-card-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes hover-card-out {
+    to {
+      opacity: 0;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Topic notes.
+
+   The note editor is the one surface in the app where markdown renders as
+   itself, so it is the one place that needs the element defaults preflight
+   strips put back. Everything below is {typography} and {colors} tokens
+   pitched a step under the app's own scale: a heading inside a note should
+   never out-rank the panel header sitting above it.
+
+   Unlayered on purpose — these have to win against preflight, which lives in
+   `@layer base`.
+--------------------------------------------------------------------------- */
+.note-prose {
+  @apply text-body-md text-ink;
+}
+
+.note-prose > * + * {
+  @apply mt-3;
+}
+
+/* Three levels that are actually three levels. Neighbouring steps of the
+   {typography} scale (20 → 18) are close enough that an h1 and an h2 read as
+   the same thing, so the ladder skips: 24 → 20 → and then down to a small
+   bold label, which is the only way a third level stays distinguishable from
+   a bolded sentence without inventing a weight the system doesn't have. */
+.note-prose h1 {
+  @apply text-display-sm;
+}
+
+.note-prose h2 {
+  @apply text-display-xs;
+}
+
+.note-prose h3 {
+  @apply text-caption-bold;
+}
+
+.note-prose h1,
+.note-prose h2,
+.note-prose h3 {
+  @apply mt-5 first:mt-0;
+}
+
+.note-prose ul {
+  @apply list-disc pl-5;
+}
+
+.note-prose ol {
+  @apply list-decimal pl-5;
+}
+
+/* A bullet is decoration and can recede; a number is content — "step 2" is
+   part of what the note says — so it holds the weight body text does. */
+.note-prose ul li::marker {
+  @apply text-steel;
+}
+
+.note-prose ol li::marker {
+  @apply text-graphite;
+}
+
+.note-prose li + li,
+.note-prose li > ul,
+.note-prose li > ol {
+  @apply mt-1;
+}
+
+/* `{typography.body-emphasis}` calls run-in bold 500, and in catalog prose it
+   is. Inside a note it isn't: at 16px Manrope, 500 against 400 is invisible,
+   and `**` is a control the user just pressed and needs to see land. 600 —
+   still a weight the system ships, and clear of the 700 an h3 uses. */
+.note-prose strong {
+  @apply font-semibold;
+}
+
+.note-prose em {
+  @apply italic;
+}
+
+.note-prose s {
+  @apply text-graphite line-through;
+}
+
+.note-prose a {
+  @apply text-primary underline underline-offset-2;
+}
+
+.note-prose blockquote {
+  @apply border-l-2 border-hairline pl-4 text-charcoal;
+}
+
+.note-prose hr {
+  @apply my-5 border-t border-hairline;
+}
+
+/* Code is the one place the system reaches outside its single type family:
+   a snippet that isn't monospaced isn't a snippet. */
+.note-prose code {
+  @apply rounded-sm bg-cloud px-1 py-0.5 font-mono text-caption-md;
+}
+
+.note-prose pre {
+  @apply overflow-x-auto rounded-lg bg-cloud p-3 font-mono text-caption-md;
+}
+
+.note-prose pre code {
+  @apply bg-transparent p-0 text-inherit;
+}
+
+/* The other half of a note: its markdown source, in the window's Edit tab.
+   Monospaced because that is what says "this is source, and the asterisks are
+   yours" — the rendered half is one tab away and looks nothing like it. */
+.note-source {
+  @apply font-mono text-caption-md text-ink;
+  line-height: 1.6;
+  tab-size: 2;
+}
+
+.note-source::placeholder {
+  @apply text-graphite;
 }
 
 @layer base {

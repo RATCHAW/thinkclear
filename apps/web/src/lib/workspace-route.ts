@@ -13,6 +13,7 @@
  *   ?library             the library sheet is open
  *   ?assistant           the assistant is open, showing the chat
  *   ?assistant=history   …showing chat history over the chat instead
+ *   ?note=<id>,<id>      those topics' notes are open, front-most last
  *   ?chat=<id>           the conversation the assistant holds, whether or not
  *                        the panel is open
  *
@@ -29,6 +30,20 @@ export interface WorkspaceRoute {
   assistantOpen: boolean;
   /** Whether the assistant is showing chat history instead of the chat. */
   historyOpen: boolean;
+  /**
+   * The topics whose notes are open, as windows over the canvas — **front-most
+   * last**, so this is the stacking order as well as the guest list. Notes are
+   * read side by side, so opening one never closes another.
+   *
+   * A note belongs to a topic of the open mindmap, which the grammar below
+   * enforces rather than leaving as a fact every caller has to remember. Where
+   * each window *sits* and how big it is are deliberately not here: those are
+   * transient chrome, not somewhere the user can be. Which window is in front
+   * is the borderline case, and it is here because it is the difference
+   * between a link that restores the arrangement you shared and one that
+   * restores a pile in a random order.
+   */
+  noteNodeIds: string[];
 }
 
 const MINDMAPS_SEGMENT = "mindmaps";
@@ -36,18 +51,63 @@ const MINDMAPS_SEGMENT = "mindmaps";
 export function parseWorkspaceRoute(url: string): WorkspaceRoute {
   // A relative URL is what `location.pathname + location.search` gives; the
   // base only exists to satisfy the parser and never survives it.
-  const { pathname, searchParams } = new URL(url, "http://workspace.invalid");
+  const { pathname, search, searchParams } = new URL(
+    url,
+    "http://workspace.invalid",
+  );
   const [collection, id] = pathname.split("/").filter(Boolean);
   const assistant = searchParams.get("assistant");
+  const mindmapId =
+    collection === MINDMAPS_SEGMENT && id ? decodeURIComponent(id) : null;
 
   return {
-    mindmapId:
-      collection === MINDMAPS_SEGMENT && id ? decodeURIComponent(id) : null,
+    mindmapId,
     conversationId: searchParams.get("chat") || null,
     libraryOpen: searchParams.has("library"),
     assistantOpen: assistant !== null,
     historyOpen: assistant === "history",
+    // Resolved the same way the serializer writes it, so a hand-typed URL
+    // asking for notes with no map under them lands somewhere definite instead
+    // of on a state the app can't render. Duplicates collapse: a topic's note
+    // is one window, and asking for it twice cannot make it two.
+    noteNodeIds: mindmapId ? noteIds(rawParam(search, "note")) : [],
   };
+}
+
+/**
+ * The still-escaped value of a query parameter.
+ *
+ * `URLSearchParams` decodes on the way out, which for a list is too early: an
+ * id escaped to `%2C` would come back a comma and split itself in two. Reading
+ * it raw is what lets the separator mean only what the serializer meant by it.
+ */
+function rawParam(search: string, name: string): string | null {
+  for (const pair of search.replace(/^\?/, "").split("&")) {
+    const equals = pair.indexOf("=");
+    if (equals !== -1 && pair.slice(0, equals) === name) {
+      return pair.slice(equals + 1);
+    }
+  }
+  return null;
+}
+
+function noteIds(value: string | null): string[] {
+  if (!value) return [];
+  const ids = new Set<string>();
+  for (const part of value.split(",")) {
+    const id = safeDecode(part).trim();
+    if (id) ids.add(id);
+  }
+  return [...ids];
+}
+
+/** A hand-typed URL can carry a stray `%`; that reads as text, not an error. */
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 export function workspaceRouteUrl(route: WorkspaceRoute): string {
@@ -60,11 +120,22 @@ export function workspaceRouteUrl(route: WorkspaceRoute): string {
   // and typed. Writing history only alongside the panel is also what keeps
   // "history showing over a closed assistant" unrepresentable: every
   // navigation round-trips through this grammar, so the state can't drift into
-  // a combination the URL has no way to say.
+  // a combination the URL has no way to say. Notes are bound the same way to
+  // the map they hang off — the ids name topics of that map, so closing the
+  // canvas puts every note away without anything having to remember to. They
+  // do *not* fight the assistant for room: a note is a window over the canvas,
+  // not a second panel, so any number of them coexist with it.
+  //
+  // Comma-separated rather than repeated, because these URLs are meant to be
+  // read: `?note=root,backend` says "two notes, backend in front" at a glance.
+  // Each id is escaped first, so a comma inside one can't split it in two.
   const query: string[] = [];
   if (route.libraryOpen) query.push("library");
   if (route.assistantOpen) {
     query.push(route.historyOpen ? "assistant=history" : "assistant");
+  }
+  if (route.noteNodeIds.length > 0 && route.mindmapId) {
+    query.push(`note=${route.noteNodeIds.map(encodeURIComponent).join(",")}`);
   }
   if (route.conversationId) {
     query.push(`chat=${encodeURIComponent(route.conversationId)}`);
