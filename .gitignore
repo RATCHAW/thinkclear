@@ -1,10 +1,12 @@
 node_modules/
 dist/
+.next/
 .turbo/
 .env
 *.local
 .DS_Store
 coverage/
+*.tsbuildinfo
 playwright-report/
 test-results/
 **/__screenshots__/

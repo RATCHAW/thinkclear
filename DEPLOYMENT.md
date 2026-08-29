@@ -7,7 +7,7 @@ MongoDB runs beside the API. GitHub Actions gates both.
 
 | | | |
 |---|---|---|
-| `thinkclear.xyz` | the landing page | a separate Next.js app, deployed on its own — not this repository |
+| `thinkclear.xyz` | the landing page | `apps/landing` — in this repository, but its own Vercel project and its own deploy |
 | `app.thinkclear.xyz` | **the app** | Vercel; the only origin a browser or an MCP client ever talks to |
 | `api.thinkclear.xyz` | the API | Coolify on the VPS; reachable, but nothing is meant to arrive there directly |
 
@@ -41,7 +41,8 @@ browser / MCP client ───────────────────�
                                                                                 ▼
                                                                              MongoDB
 
-     https://thinkclear.xyz  ─►  landing (separate Next.js app, separate deploy)
+     https://thinkclear.xyz  ─►  landing (apps/landing, second Vercel project,
+                                          separate deploy, no rewrites)
 ```
 
 Tokens are audience-bound to `MCP_RESOURCE_URL`, which defaults to
@@ -132,9 +133,24 @@ current origin. Nothing about the deployment is baked into the bundle.
 
 Add `app.thinkclear.xyz` as the domain. It must be the same host as `APP_URL`.
 
-The landing page is a **separate Vercel project** on `thinkclear.xyz`. Two
-projects on one root domain do not collide, and nothing in this repository has to
-know about it.
+### The landing page project
+
+`apps/landing` is a **second Vercel project** on `thinkclear.xyz`, from the same
+repository. Two projects on one root domain do not collide. Set it up as:
+
+| | |
+|---|---|
+| Root Directory | `apps/landing` |
+| Include source files outside the Root Directory | **on** — it is a pnpm workspace |
+| Framework | Next.js (`apps/landing/vercel.json` says so; the build command filters to `@thinkclear/landing`) |
+| Environment variables | **none** |
+| Domain | `thinkclear.xyz` |
+
+It has **no rewrites**, which is the difference that matters: the app's
+`vercel.json` proxies `/api` and `/.well-known` because the whole one-origin rule
+depends on it, and the landing proxies nothing because it serves nothing but
+static pages. It reaches the app by link, at the URLs in
+`apps/landing/src/lib/site.ts` — the only place either origin is written down.
 
 ### The landing page and the session
 

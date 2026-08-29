@@ -1,0 +1,364 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   The landing page has its own visual system, and that is on purpose.
+
+   `apps/web` implements DESIGN.md — white canvas, near-black ink, one deep
+   blue. This page implements the Calendly-derived system: navy ink on cool
+   marble, a single vivid blue for every filled action, and decorative magenta
+   and cyan blobs behind the product visuals. They are different jobs. A
+   marketing page is read once, at arm's length, by somebody deciding; the app
+   is read all day by somebody working. Sharing tokens between them would drag
+   one toward the other.
+
+   Nothing here is imported by the app and nothing in the app is imported here.
+   The only contract between the two is the URLs in `lib/site.ts`.
+--------------------------------------------------------------------------- */
+
+@theme {
+  /* {colors} */
+  --color-ink-navy: #0b3558;
+  --color-signal-blue: #006bff;
+  --color-slate-gray: #476788;
+  --color-mist-gray: #a6bbd1;
+  --color-cloud: #f8f9fb;
+  --color-paper: #ffffff;
+  --color-pebble: #f0f3f8;
+  --color-hairline: #d4e0ed;
+  --color-carbon: #0a0a0a;
+  --color-coral-magenta: #e55cff;
+  --color-sky-cyan: #0099ff;
+  --color-deep-cobalt: #004eba;
+  --color-badge-wash: #e6f0ff;
+
+  /* The mindmap canvas keeps the app's own roadmap.sh-style palette wherever
+     it is drawn, marketing page included. It is content, not chrome — a
+     screenshot recolored to match the page around it stops being a
+     screenshot. These four are lifted verbatim from
+     apps/web/src/components/mindmap-canvas.tsx. */
+  --color-topic-root: #ffe600;
+  --color-topic-child: #ffe599;
+  --color-topic-edge: #2b78e4;
+  --color-topic-border: #0a0a0a;
+
+  /* {typography}. Manrope is the spec's substitute for Gilroy; `--font-manrope`
+     is supplied by next/font in layout.tsx. */
+  --font-sans:
+    var(--font-manrope), ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  /* The display steps clamp rather than sit at their fixed value. 80px is the
+     point of the system — an undersized hero loses the page's editorial
+     confidence — but 80px on a 375px screen is four words per line, so the
+     spec's number is the ceiling instead of the size. */
+  --text-caption: 12px;
+  --text-caption--line-height: 1.5;
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 1.4;
+  /* The reference measures body at line-height 1, which is right for the
+     single-line UI labels it was sampled from and unreadable for a paragraph.
+     Prose gets real leading; `text-label` keeps the measured value for the
+     places it was measured from. */
+  --text-body: 16px;
+  --text-body--line-height: 1.6;
+  --text-label: 16px;
+  --text-label--line-height: 1;
+  --text-button: 18px;
+  --text-button--line-height: 1.6;
+  --text-button--font-weight: 600;
+  --text-body-lg: 20px;
+  --text-body-lg--line-height: 1.55;
+  --text-subheading: clamp(22px, 2.4vw, 28px);
+  --text-subheading--line-height: 1.4;
+  --text-subheading--font-weight: 600;
+  --text-heading-sm: clamp(26px, 3.4vw, 38px);
+  --text-heading-sm--line-height: 1.21;
+  --text-heading-sm--font-weight: 700;
+  --text-heading: clamp(30px, 4.4vw, 50px);
+  --text-heading--line-height: 1.2;
+  --text-heading--font-weight: 700;
+  --text-heading-lg: clamp(34px, 5.4vw, 68px);
+  --text-heading-lg--line-height: 1.2;
+  --text-heading-lg--font-weight: 700;
+  --text-display: clamp(40px, 6.4vw, 80px);
+  --text-display--line-height: 1.2;
+  --text-display--font-weight: 700;
+
+  /* {radius}. 8px on buttons is the system's sharp-but-soft sweet spot; 16px
+     is a product card, 24px a feature panel. */
+  --radius-button: 8px;
+  --radius-input: 8px;
+  --radius-product: 16px;
+  --radius-card: 24px;
+
+  /* {elevation}. Blue-tinted, three layers, never neutral black. */
+  --shadow-lift:
+    rgba(71, 103, 136, 0.04) 0px 4px 5px 0px,
+    rgba(71, 103, 136, 0.03) 0px 4px 10px 0px,
+    rgba(71, 103, 136, 0.05) 0px 10px 20px 0px;
+  --shadow-product:
+    rgba(71, 103, 136, 0.04) 0px 4px 5px 0px,
+    rgba(71, 103, 136, 0.03) 0px 8px 15px 0px,
+    rgba(71, 103, 136, 0.08) 0px 30px 50px 0px;
+  --shadow-button:
+    rgba(71, 103, 136, 0.04) 0px 4px 5px 0px,
+    rgba(71, 103, 136, 0.03) 0px 8px 15px 0px,
+    rgba(71, 103, 136, 0.06) 0px 15px 30px 0px;
+
+  /* {motion}. The built-in CSS easings are too weak to read as intentional.
+     `ease-in` is absent deliberately: it delays the first frame, which is the
+     one the eye is on. */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+
+  --container-page: 1200px;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    /* The header is sticky, so an anchor that scrolls to the top of a section
+       would put its heading underneath it. */
+    scroll-padding-top: 96px;
+    -webkit-text-size-adjust: 100%;
+    /* What lets the FAQ's `<details>` animate to `auto` height below. Ignored
+       where it is not supported, which is the whole point of doing it this
+       way. */
+    interpolate-size: allow-keywords;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  body {
+    background-color: var(--color-cloud);
+    color: var(--color-ink-navy);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Never #000. Ink Navy is what keeps the system warm. */
+  ::selection {
+    background-color: var(--color-badge-wash);
+    color: var(--color-deep-cobalt);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-signal-blue);
+    outline-offset: 2px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Buttons.
+
+   In CSS rather than assembled from utilities in JSX because the parts that
+   matter here are the press feedback and its curve, and those read better in
+   one place than spread across a `className` string.
+--------------------------------------------------------------------------- */
+@layer components {
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: var(--radius-button);
+    padding: 10px 20px;
+    font-size: 18px;
+    line-height: 1.6;
+    font-weight: 600;
+    white-space: nowrap;
+    text-decoration: none;
+    transition:
+      transform 160ms var(--ease-out-strong),
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  /* Instant, physical acknowledgement that the press landed. */
+  .button:active {
+    transform: scale(0.97);
+  }
+
+  .button-primary {
+    background-color: var(--color-signal-blue);
+    color: var(--color-paper);
+    box-shadow: var(--shadow-button);
+  }
+
+  .button-dark {
+    background-color: var(--color-ink-navy);
+    color: var(--color-paper);
+  }
+
+  .button-quiet {
+    background-color: var(--color-paper);
+    color: var(--color-ink-navy);
+    border: 1px solid var(--color-hairline);
+  }
+
+  .button-outline {
+    background-color: transparent;
+    color: var(--color-paper);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+  }
+
+  /* Touch devices fire :hover on tap and then keep it, which turns every
+     press into a stuck hover state. */
+  @media (hover: hover) and (pointer: fine) {
+    .button-primary:hover {
+      background-color: #0060e6;
+    }
+
+    .button-dark:hover {
+      background-color: #0e4573;
+    }
+
+    .button-quiet:hover {
+      background-color: var(--color-pebble);
+      border-color: var(--color-mist-gray);
+    }
+
+    .button-outline:hover {
+      background-color: rgba(255, 255, 255, 0.12);
+      border-color: var(--color-paper);
+    }
+  }
+
+  .button-compact {
+    padding: 6px 16px;
+    font-size: 16px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Motion.
+
+   Two kinds live here. The hero runs on CSS animations because it is
+   predetermined and fires while the browser is still busy with the rest of the
+   page — CSS animations run off the main thread and keep their frames where a
+   requestAnimationFrame loop would drop them. Everything below the fold is a
+   transition driven by one shared IntersectionObserver, so a reveal that is
+   interrupted mid-flight retargets instead of restarting.
+--------------------------------------------------------------------------- */
+@layer components {
+  .reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 600ms var(--ease-out-strong),
+      transform 600ms var(--ease-out-strong);
+  }
+
+  .reveal[data-visible] {
+    opacity: 1;
+    transform: none;
+  }
+
+  .rise {
+    opacity: 0;
+    transform: translateY(14px);
+    animation: rise 700ms var(--ease-out-strong) forwards;
+  }
+
+  @keyframes rise {
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* The hero mindmap draws itself: edges stroke on, topics settle in behind
+     them. Marketing tier, so it is allowed to take longer than a UI
+     animation — it is explaining the product, not responding to a press. */
+  .topic-node {
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scale(0.94);
+    animation: topic-settle 420ms var(--ease-out-strong) forwards;
+  }
+
+  @keyframes topic-settle {
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .topic-edge {
+    stroke-dasharray: var(--edge-length);
+    stroke-dashoffset: var(--edge-length);
+    animation: edge-draw 520ms var(--ease-out-strong) forwards;
+  }
+
+  @keyframes edge-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /* The FAQ opens with real CSS on `<details>` rather than with a JavaScript
+     accordion. A browser without `::details-content` opens instantly instead
+     of not at all, which is the right failure. */
+  .faq-item::details-content {
+    block-size: 0;
+    overflow: hidden;
+    transition:
+      block-size 220ms var(--ease-out-strong),
+      content-visibility 220ms allow-discrete;
+  }
+
+  .faq-item[open]::details-content {
+    block-size: auto;
+  }
+
+  /* Atmosphere behind the product cards. Never a fill for anything the user
+     can act on. */
+  .blob {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(56px);
+    opacity: 0.34;
+    pointer-events: none;
+  }
+
+  /* Reduced motion means fewer and gentler, not none: the opacity fades stay
+     because they tell you something arrived, and every translate, scale, and
+     stroke reveal goes. */
+  @media (prefers-reduced-motion: reduce) {
+    .reveal {
+      transform: none;
+      transition: opacity 300ms ease;
+    }
+
+    .rise {
+      transform: none;
+      animation: rise 300ms ease forwards;
+    }
+
+    .topic-node {
+      transform: none;
+      animation: topic-settle 300ms ease forwards;
+      animation-delay: 0ms !important;
+    }
+
+    .topic-edge {
+      stroke-dasharray: none;
+      stroke-dashoffset: 0;
+      animation: none;
+    }
+
+    .faq-item::details-content,
+    .faq-item[open]::details-content {
+      transition: none;
+    }
+  }
+}

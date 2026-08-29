@@ -10,6 +10,8 @@ skills-lock.json
 
 # Build output and tool state.
 **/dist/
+**/.next/
+apps/landing/next-env.d.ts
 **/.turbo/
 coverage/
 apps/web/.vitest-attachments/

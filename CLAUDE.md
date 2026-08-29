@@ -8,7 +8,7 @@ Guidance for Claude Code working in this repository.
 pnpm install
 docker compose up -d mongo          # MongoDB on :27017 (required for api + auth)
 cp apps/api/.env.example apps/api/.env   # then set BETTER_AUTH_SECRET
-pnpm dev                            # turbo: api :3000, web :5173
+pnpm dev                            # turbo: api :3000, web :5173, landing :4000
 pnpm build                          # all workspaces
 pnpm lint                           # ESLint, including type-aware promise rules
 pnpm lint:fix                       # apply safe ESLint fixes
@@ -36,17 +36,21 @@ tools do not compete. Run type checks from the root so turbo builds
 a stale build.
 
 Single-workspace commands: `pnpm --filter @thinkclear/api <script>` (likewise
-`@thinkclear/web`, `@thinkclear/shared`).
+`@thinkclear/web`, `@thinkclear/landing`, `@thinkclear/shared`).
+
+`apps/landing` is outside all of that on purpose: it has no tests, no generated
+contract, and no dependency on `packages/shared`, so nothing above needs it and
+`pnpm --filter @thinkclear/landing dev` is enough to work on it alone.
 
 ## Dev servers
 
 Several Conductor workspaces share this machine and the fixed ports (api :3000,
-web :5173), so treat servers as a checked-out resource:
+landing :4000, web :5173), so treat servers as a checked-out resource:
 
 - **Before starting anything**, check what's already listening:
-  `lsof -nP -iTCP:3000 -iTCP:5173 -sTCP:LISTEN`. If the ports are taken, reuse
-  the running servers (nest/vite hot-reload code edits automatically) — don't
-  kill another workspace's servers without asking.
+  `lsof -nP -iTCP:3000 -iTCP:4000 -iTCP:5173 -sTCP:LISTEN`. If the ports are
+  taken, reuse the running servers (nest/vite/next hot-reload code edits
+  automatically) — don't kill another workspace's servers without asking.
 - **If you start servers for a task** (verification, browser testing), stop
   them when the task is done and confirm the ports are free again. Don't leave
   background dev servers running at the end of a turn.
@@ -55,11 +59,13 @@ web :5173), so treat servers as a checked-out resource:
 
 ## Architecture
 
-Turborepo + pnpm workspaces, three packages:
+Turborepo + pnpm workspaces, four packages:
 
 - `apps/api` — NestJS 11, Mongoose, Better Auth, Swagger, Vercel AI SDK
 - `apps/web` — Vite + React 19, Tailwind v4, shadcn/ui, React Flow, React Query
-- `packages/shared` — zod schemas + types imported by both
+- `apps/landing` — Next.js 16 App Router, React 19, Tailwind v4 (the marketing
+  site on `thinkclear.xyz`; deployed separately, see below)
+- `packages/shared` — zod schemas + types imported by the api and the web app
 
 ### The API contract is generated, in two hops
 
@@ -406,6 +412,44 @@ All web requests go to the current origin — Vite proxies `/api` to :3000 (ngin
 does it in the docker image) so the session cookie stays first-party. Don't
 point the client at `http://localhost:3000` directly.
 
+### The landing page shares the repository and nothing else
+
+`apps/landing` is the marketing site — Next.js 16 App Router, static, no data
+and no session. It is in the monorepo so that a claim about the product and the
+code that makes the claim true move in one commit, and it is coupled to nothing
+here on purpose:
+
+- **It imports no workspace package.** `lib/site.ts` is the entire contract
+  with the rest of the product: the app's origin, the MCP endpoint, and the
+  GitHub URLs, written literally for the same reason the API host is literal in
+  the root `vercel.json`. A landing that imported `@thinkclear/shared` would
+  make a marketing copy change a reason to rebuild the API.
+- **It has its own visual system, and that is the point.** `apps/web`
+  implements DESIGN.md; `apps/landing/src/app/globals.css` implements the
+  Calendly-derived one — navy ink on cool marble, one vivid blue for filled
+  actions, decorative magenta and cyan blobs behind the product visuals. A page
+  read once by somebody deciding and an app read all day by somebody working
+  want different things. The **canvas palette is the exception**: the mindmap
+  mock is drawn in the app's own `#ffe600` / `#2b78e4`, because a screenshot
+  recolored to match the page around it stops being a screenshot.
+- **Server components by default.** Three things are interactive — the
+  small-screen menu, the feature accordion, and the scroll reveals — and each is
+  the only client boundary in its subtree. The mocks and icons reach
+  `feature-showcase.tsx` as already-rendered elements passed in as props, so
+  none of them is in the browser bundle. There is no icon package and no motion
+  library; the whole icon set is `components/icons.tsx` and the motion is CSS.
+- **`Reveal` shares one IntersectionObserver** (`lib/reveal-observer.ts`) and
+  unsubscribes each element as it fires, because the reveal is once-only.
+- **`next.config.ts` sets three things that all have to stay.**
+  `turbopack.root` and `outputFileTracingRoot` are both the *workspace* root and
+  must be equal — dependencies are hoisted there, so a build rooted at
+  `apps/landing` traces a subset of what it compiled against. `agentRules: false`
+  stops `next dev` writing its own `AGENTS.md` and `CLAUDE.md` into the app
+  directory on every start.
+
+`pnpm dev` now starts three servers; the landing takes **:4000** so it does not
+collide with the API on :3000.
+
 ### Deployment: two hosts, one origin
 
 `DEPLOYMENT.md` is the operational guide. What matters when *changing* things:
@@ -425,11 +469,15 @@ The API host is written literally in `vercel.json` because Vercel does not
 interpolate environment variables into it. That is the one value in the
 repository that is per-deployment.
 
-`thinkclear.xyz` is a **separate Next.js landing app** with its own deploy;
-nothing here knows about it, and nothing here should. The session cookie is
-host-only on `app.thinkclear.xyz`, so the landing cannot read it — widening it to
-`Domain=.thinkclear.xyz` would hand it to every present and future subdomain, and
-that is a decision to make deliberately rather than inherit.
+`thinkclear.xyz` is the **landing app** — `apps/landing`, in this repository
+since it is the same product's front door, but a **separate Vercel project with
+its own deploy**, its own `vercel.json`, and no rewrites. It shares the
+lockfile and the toolchain and nothing else: it imports no workspace package,
+reaches the app only by URL, and holds its own copy of the visual system (see
+below). The session cookie is host-only on `app.thinkclear.xyz`, so the landing
+cannot read it — widening it to `Domain=.thinkclear.xyz` would hand it to every
+present and future subdomain, and that is a decision to make deliberately
+rather than inherit.
 
 `APP_URL` is the app's Vercel origin — never the API's domain, and never the
 landing's. Same rule the compose stack already encodes, now with a public

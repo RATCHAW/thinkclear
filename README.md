@@ -6,6 +6,7 @@ AI mindmap app monorepo — Turborepo + pnpm.
 
 - **apps/api** — NestJS 11, Mongoose (`@nestjs/mongoose`), Better Auth (`@thallesp/nestjs-better-auth`), Swagger/OpenAPI, Vercel AI SDK, zod
 - **apps/web** — Vite + React 19, Tailwind CSS v4, shadcn/ui, Better Auth client, React Flow (`@xyflow/react`), zod
+- **apps/landing** — Next.js 16 (App Router), React 19, Tailwind CSS v4 — the marketing site on `thinkclear.xyz`, deployed on its own
 - **packages/shared** — zod schemas shared between api and web
 - **MongoDB** — via Docker
 
@@ -16,7 +17,7 @@ pnpm install
 pnpm test:install-browser          # once, for browser end-to-end tests
 docker compose up -d mongo        # start MongoDB
 cp apps/api/.env.example apps/api/.env   # then set BETTER_AUTH_SECRET
-pnpm dev                          # api on :3000, web on :5173
+pnpm dev                          # api on :3000, landing on :4000, web on :5173
 ```
 
 Open http://localhost:5173 — sign up, then you land in the workspace: the
@@ -178,6 +179,13 @@ Map** section maps every `{token}` to the Tailwind utility that implements it.
 Tokens live in `apps/web/src/index.css`. Reference tokens (`text-display-md`,
 `bg-cloud`, `shadow-soft-lift`, `rounded-xl`) rather than hex/px values, and
 build dark bands with the `surface-ink` class rather than ad-hoc colors.
+
+The landing page has a **different** one, in `apps/landing/src/app/globals.css`
+— navy ink on cool marble, a single vivid blue for filled actions. A marketing
+page read once by somebody deciding and an app read all day by somebody working
+want different things, so the two systems do not share tokens. The one thing
+they do share is the mindmap canvas palette, because the mock on the landing
+page is meant to look like the canvas rather than like the page around it.
 
 ## Adding shadcn components
 
