@@ -5,6 +5,7 @@ import { AuthModule } from "@thallesp/nestjs-better-auth";
 import { AiModule } from "./ai/ai.module";
 import { auth } from "./auth";
 import { ConversationsModule } from "./conversations/conversations.module";
+import { McpModule } from "./mcp/mcp.module";
 import { MeController } from "./me/me.controller";
 import { MindmapsModule } from "./mindmaps/mindmaps.module";
 
@@ -18,6 +19,7 @@ import { MindmapsModule } from "./mindmaps/mindmaps.module";
     MindmapsModule,
     ConversationsModule,
     AiModule,
+    McpModule,
   ],
   controllers: [MeController],
 })

@@ -25,8 +25,13 @@ services:
     environment:
       MONGODB_URI: mongodb://mongo:27017/mindmap
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-only-secret-change-me}
-      BETTER_AUTH_URL: http://localhost:3000
+      # The origin users and MCP clients reach the app on — the web container,
+      # which proxies /api here.
+      APP_URL: http://localhost:5173
       CLIENT_ORIGIN: http://localhost:5173
+      # APP_URL does not resolve from inside this container, and verifying our
+      # own tokens has no reason to leave it.
+      MCP_JWKS_URL: http://localhost:3000/api/auth/jwks
       PORT: "3000"
     depends_on:
       mongo:

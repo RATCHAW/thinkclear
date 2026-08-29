@@ -10,7 +10,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json"
   },
   "dependencies": {
+    "@better-auth/mcp": "1.7.2",
+    "@better-auth/oauth-provider": "1.7.2",
     "@mindmap/shared": "workspace:*",
+    "@modelcontextprotocol/node": "2.0.0",
+    "@modelcontextprotocol/server": "2.0.0",
     "@nestjs/common": "^11.1.6",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.1.6",
@@ -34,6 +38,7 @@
     "@types/express": "^5.0.3",
     "@types/node": "^24.5.2",
     "@types/supertest": "7.2.1",
+    "jose": "6.2.3",
     "supertest": "7.2.2",
     "typescript": "^5.9.2"
   }
