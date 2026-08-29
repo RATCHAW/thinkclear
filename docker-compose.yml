@@ -2,7 +2,10 @@ name: mindmap
 
 services:
   mongo:
-    image: mongo:8
+    # Pinned by digest, and to the same one CI runs — a suite that passes
+    # against a different Mongo than the one on your machine is worth less than
+    # the minutes it costs. Bump this and .github/workflows/*.yml together.
+    image: mongo:8@sha256:e0ce8c35124d4a9f9785532d1f268f39e9728ffa1cb38f46fa482436424c4bd3
     container_name: mindmap-mongo
     ports:
       - "27017:27017"
@@ -33,6 +36,9 @@ services:
       # own tokens has no reason to leave it.
       MCP_JWKS_URL: http://localhost:3000/api/auth/jwks
       PORT: "3000"
+      # Absent, POST /api/chat answers 503 and everything else works.
+      LLM_GATEWAY_API_KEY: ${LLM_GATEWAY_API_KEY:-}
+      AI_CHAT_MODEL: ${AI_CHAT_MODEL:-deepseek/deepseek-v4-flash}
     depends_on:
       mongo:
         condition: service_healthy
@@ -46,7 +52,10 @@ services:
     ports:
       - "5173:80"
     depends_on:
-      - api
+      # nginx resolves `api` once at startup and caches it, so a web container
+      # that wins the race serves 502 until it is restarted.
+      api:
+        condition: service_healthy
 
 volumes:
   mongo-data:

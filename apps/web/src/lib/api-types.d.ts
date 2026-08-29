@@ -4,6 +4,22 @@
  */
 
 export interface paths {
+    "/api/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["HealthController_check"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me": {
         parameters: {
             query?: never;
@@ -120,6 +136,20 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        HealthResponseDto: {
+            /** @example ok */
+            status: string;
+            /**
+             * @description The Mongo connection's state
+             * @example connected
+             */
+            database: string;
+            /**
+             * @description Seconds since this process started
+             * @example 1837
+             */
+            uptime: number;
+        };
         MeUserDto: {
             id: string;
             email: string;
@@ -230,6 +260,34 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    HealthController_check: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthResponseDto"];
+                };
+            };
+            /** @description The API is up but its database is not reachable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthResponseDto"];
+                };
+            };
+        };
+    };
     MeController_me: {
         parameters: {
             query?: never;

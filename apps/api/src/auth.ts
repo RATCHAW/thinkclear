@@ -37,6 +37,28 @@ export const APP_URL = process.env.APP_URL ?? "http://localhost:5173";
 export const MCP_RESOURCE_URL =
   process.env.MCP_RESOURCE_URL ?? `${APP_URL}/api/mcp`;
 
+/**
+ * Every origin allowed to drive this API — `CLIENT_ORIGIN` as a comma-separated
+ * list, with `APP_URL` always in it because that is the app.
+ *
+ * A list rather than a string because a deployment has more than one legitimate
+ * front door: an apex and its `www`, and Vercel's preview URLs, which are a
+ * different origin per branch. Better Auth rejects a state-changing request
+ * whose `Origin` it does not trust, so a preview deployment left out here can
+ * render the app perfectly and fail at sign-in. Better Auth accepts wildcards,
+ * which is the only practical way to name previews:
+ * `https://*-myteam.vercel.app`.
+ */
+export const CLIENT_ORIGINS = [
+  ...new Set([
+    APP_URL,
+    ...(process.env.CLIENT_ORIGIN ?? "")
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean),
+  ]),
+];
+
 export const auth = betterAuth({
   baseURL: APP_URL,
   secret: process.env.BETTER_AUTH_SECRET,
@@ -44,7 +66,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-  trustedOrigins: [process.env.CLIENT_ORIGIN ?? APP_URL],
+  trustedOrigins: CLIENT_ORIGINS,
   plugins: [
     // Access tokens are JWTs verified against this plugin's JWKS, which is how
     // the MCP route can check a token without a database round trip.

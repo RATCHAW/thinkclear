@@ -1,0 +1,236 @@
+name: Deploy
+
+# The only thing that deploys the API. Coolify's own auto-deploy must be OFF
+# (Application -> General -> Auto Deploy), so there is exactly one trigger, one
+# log, and one answer to "what is running".
+#
+# A webhook cannot give us two things this does:
+#
+#   1. tests gate the deploy — a webhook ships whatever lands on main;
+#   2. what was tested is what ships — `POST /deploy` builds the branch head at
+#      build time, so a second commit landing mid-build would deploy something
+#      the checks never saw. Pinning `git_commit_sha` first removes that gap.
+#
+# apps/web is deliberately not here: it goes to Vercel through its own git
+# integration, which has no env coupling to sequence with this and gives
+# preview deployments for free. The two are independent because the browser
+# only ever talks to one origin — Vercel's — and vercel.json rewrites /api and
+# /.well-known through to the host this workflow deploys.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit, tag or branch to deploy (defaults to main's head)"
+        required: false
+
+# Deployment only needs to read the tested source. Keep the token read-only even
+# if the repository default is later widened for another workflow.
+permissions:
+  contents: read
+
+# Serialised: two runs would race to pin the commit.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Validate the release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      api: ${{ steps.scope.outputs.api }}
+    services:
+      mongo:
+        image: mongo:8@sha256:e0ce8c35124d4a9f9785532d1f268f39e9728ffa1cb38f46fa482436424c4bd3
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out the requested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          # The scope check diffs against the previous head, so shallow won't do.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve the tested commit
+        id: resolve
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # Worked out with git rather than a marketplace action: this workflow holds
+      # credentials to the production host, so it takes as few third-party
+      # dependencies as it can.
+      - name: Determine the deployment scope
+        id: scope
+        env:
+          BEFORE: ${{ github.event.before }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          if [ "$EVENT" = "workflow_dispatch" ] || [ -z "$BEFORE" ] ||
+             [ "$BEFORE" = "0000000000000000000000000000000000000000" ] ||
+             ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            # No usable base (manual run, first push, force push): deploy rather
+            # than guess and under-deploy.
+            api=true
+          else
+            changed=$(git diff --name-only "$BEFORE" "$sha")
+            # `packages/` covers packages/shared, which the API compiles into
+            # its bundle — so a schema change always redeploys the API.
+            grep -qE '^(apps/api/|packages/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|turbo\.json$|\.dockerignore$)' <<<"$changed" \
+              && api=true || api=false
+          fi
+          echo "api=$api" >> "$GITHUB_OUTPUT"
+          echo "api=$api"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Install Chromium
+        timeout-minutes: 5
+        run: pnpm test:install-browser
+
+      # The whole suite, not just the specs: a push can reach main without ever
+      # passing CI, and this is the last gate before production. mcp.e2e-spec.ts
+      # imports the real AuthModule, so this needs the Mongo service above.
+      - name: Test
+        env:
+          MONGODB_URI: mongodb://localhost:27017/mindmap-ci
+          BETTER_AUTH_SECRET: ci-only-secret-not-used-to-sign-anything-real
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      # A route that changed without `pnpm openapi` ships a web app typed
+      # against an API that no longer exists. Vercel builds from the same
+      # commit, so catching it here is catching it for both halves.
+      - name: Check the generated API contract is current
+        env:
+          MONGODB_URI: mongodb://localhost:27017/mindmap-ci
+          BETTER_AUTH_SECRET: ci-only-secret-not-used-to-sign-anything-real
+        run: |
+          pnpm openapi
+          git diff --exit-code --stat -- \
+            apps/api/openapi.json apps/web/src/lib/api-types.d.ts \
+          || {
+            echo "::error::openapi.json or api-types.d.ts is stale. Run 'pnpm openapi' and commit the result."
+            exit 1
+          }
+
+  deploy:
+    name: Deploy the API
+    needs: check
+    if: needs.check.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: Production
+    steps:
+      # Coolify's API is often bound to the tailnet rather than the public
+      # internet. Set the COOLIFY_VIA_TAILSCALE repository variable to `true`
+      # when it is; an ephemeral node tagged tag:ci joins for the length of this
+      # job, and that tag should be scoped in your ACL to this one host and port.
+      - name: Join the tailnet
+        if: vars.COOLIFY_VIA_TAILSCALE == 'true'
+        uses: tailscale/github-action@780049a30b6ff5c378a9e7b389d15ece7a204888 # v4.1.3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Point Coolify at this commit
+        env:
+          COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
+          SHA: ${{ needs.check.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # Without this the build takes whatever is at the branch head when it
+          # starts, which is not necessarily what the check job just validated.
+          curl -sS -f -X PATCH \
+            "$COOLIFY_URL/api/v1/applications/$APP_UUID" \
+            -H "Authorization: Bearer $COOLIFY_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data "$(jq -nc --arg sha "$SHA" '{git_commit_sha:$sha}')" >/dev/null
+          echo "pinned to $SHA"
+
+      - name: Deploy and wait for it
+        env:
+          COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
+        run: |
+          set -euo pipefail
+          deployment=$(curl -sS -f -X POST \
+            "$COOLIFY_URL/api/v1/deploy?uuid=$APP_UUID" \
+            -H "Authorization: Bearer $COOLIFY_TOKEN" \
+            | jq -r '.deployments[0].deployment_uuid')
+          test -n "$deployment" && test "$deployment" != "null" || {
+            echo "::error::Coolify accepted the request but returned no deployment uuid"
+            exit 1
+          }
+          echo "deployment $deployment"
+
+          # Without the poll this job is green the moment the request is
+          # accepted, and a failed build looks exactly like a shipped one.
+          for _ in $(seq 1 120); do
+            status=$(curl -sS -f \
+              "$COOLIFY_URL/api/v1/deployments/$deployment" \
+              -H "Authorization: Bearer $COOLIFY_TOKEN" | jq -r '.status')
+            echo "status: $status"
+            case "$status" in
+              finished) exit 0 ;;
+              failed|cancelled*) echo "::error::Deployment $status"; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "::error::Deployment still running after 20 minutes"
+          exit 1
+
+      # Coolify reports the container as started; this reports that the app
+      # answers, through the same path a browser takes. /api/health is 503 while
+      # Mongo is unreachable, so a container that booted without its database
+      # fails here rather than in the morning.
+      - name: Verify the deployment answers
+        env:
+          APP_ORIGIN: ${{ vars.APP_ORIGIN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$APP_ORIGIN" ]; then
+            echo "::warning::Set the APP_ORIGIN repository variable to verify deployments end to end"
+            exit 0
+          fi
+          for attempt in $(seq 1 10); do
+            body=$(curl -sS --max-time 10 "$APP_ORIGIN/api/health" || true)
+            if grep -q '"status":"ok"' <<<"$body"; then
+              echo "healthy: $body"
+              exit 0
+            fi
+            echo "attempt $attempt: $body"
+            sleep 6
+          done
+          echo "::error::$APP_ORIGIN/api/health never reported ok"
+          exit 1

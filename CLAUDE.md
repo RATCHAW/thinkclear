@@ -345,6 +345,60 @@ All web requests go to the current origin — Vite proxies `/api` to :3000 (ngin
 does it in the docker image) so the session cookie stays first-party. Don't
 point the client at `http://localhost:3000` directly.
 
+### Deployment: two hosts, one origin
+
+`DEPLOYMENT.md` is the operational guide. What matters when *changing* things:
+
+The app is on Vercel at `app.thinkclear.xyz` and the API is on a VPS behind
+Coolify at `api.thinkclear.xyz`, but the browser never learns that.
+`vercel.json` rewrites `/api/*` and `/.well-known/*` to the API host, which is
+the production copy of what `apps/web/nginx.conf` does in the compose stack and
+what the vite proxy does in dev. **Three unrelated things break if that stops
+being true**: the session cookie stops being first-party, Better Auth's
+`authorize` redirect to `/sign-in` and `/consent` lands on a host that serves no
+pages, and RFC 9728 discovery is no longer at the origin root where an MCP
+client looks. So routing changes come in pairs — `vercel.json` and `nginx.conf`
+describe the same thing and are checked by different people.
+
+The API host is written literally in `vercel.json` because Vercel does not
+interpolate environment variables into it. That is the one value in the
+repository that is per-deployment.
+
+`thinkclear.xyz` is a **separate Next.js landing app** with its own deploy;
+nothing here knows about it, and nothing here should. The session cookie is
+host-only on `app.thinkclear.xyz`, so the landing cannot read it — widening it to
+`Domain=.thinkclear.xyz` would hand it to every present and future subdomain, and
+that is a decision to make deliberately rather than inherit.
+
+`APP_URL` is the app's Vercel origin — never the API's domain, and never the
+landing's. Same rule the compose stack already encodes, now with a public
+consequence. `CLIENT_ORIGIN` is a **comma-separated list** on top of it, which is
+how Vercel's per-branch preview origins get trusted (Better Auth matches
+wildcards: `https://*-team.vercel.app`); without that a preview renders perfectly
+and fails at sign-in.
+
+`GET /api/health` exists for the platform, not for users: the container's
+`HEALTHCHECK` and Coolify's probe both read it, and it answers **503** when Mongo
+is not connected so a rollout that cannot reach its database is reported as
+failed. It is `@Public()` for the same reason the MCP routes are — the session
+guard would answer a probe 401, which is a working API refusing an anonymous
+caller and indistinguishable from a broken one.
+
+`apps/api/Dockerfile` is two stages so the Nest CLI and typescript never reach
+the runtime image; both stages install from the same lockfile, so what ships is a
+subset of what was compiled against. It runs as `node`, not root.
+
+CI/CD is three workflows. The one thing to know about `deploy.yml` is that it
+pins Coolify's `git_commit_sha` **before** triggering, because `POST /deploy`
+otherwise builds the branch head at build time — a second commit landing
+mid-build would deploy something the checks never saw. It also polls the
+deployment, since without that a failed build looks exactly like a shipped one.
+Coolify's own auto-deploy must stay off, or there are two answers to "what is
+running". `ci.yml` and `deploy.yml` both regenerate the OpenAPI contract and fail
+on a diff, which is what makes "run `pnpm openapi`" enforceable rather than
+remembered — and that step needs MongoDB, because `generate-openapi.ts` boots the
+real `AppModule` and `MongooseModule.forRoot` awaits a connection.
+
 ## Design system
 
 `DESIGN.md` is the source of truth for the visual system, and its

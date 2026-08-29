@@ -1,0 +1,11 @@
+# Security-sensitive automation and deployment boundaries. A change to any of
+# these can move where production points or what it trusts.
+/.github/ @RATCHAW
+/.dockerignore @RATCHAW
+/vercel.json @RATCHAW
+/docker-compose.yml @RATCHAW
+/**/Dockerfile @RATCHAW
+/apps/web/nginx.conf @RATCHAW
+/package.json @RATCHAW
+/pnpm-lock.yaml @RATCHAW
+/pnpm-workspace.yaml @RATCHAW
