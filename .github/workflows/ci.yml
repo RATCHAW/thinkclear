@@ -109,6 +109,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # apps/api resolves @mindmap/shared through its package.json `main`, which
+      # points into dist — so the api:e2e suites that import it cannot even be
+      # collected until it exists. Every other job gets this for free from
+      # `pnpm typecheck`, whose turbo task dependsOn ^build; this one runs
+      # vitest with no turbo task ahead of it, so it has to ask.
+      #
+      # (web:e2e does not need it — apps/web/vitest.config.ts aliases the
+      # package to packages/shared/src, so it reads the source directly.)
+      - name: Build the shared package
+        run: pnpm --filter @mindmap/shared build
+
       # Chromium only — web:e2e declares one browser instance, and pulling three
       # would cost more than the tests do. Deliberately without `--with-deps`:
       # every library Chromium links against is already on ubuntu-latest, and
