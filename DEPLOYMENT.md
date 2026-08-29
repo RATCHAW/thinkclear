@@ -37,7 +37,7 @@ browser / MCP client ───────────────────�
                                                             └─► /.well-known/* ─┤ rewrite
                                                                                 ▼
                                                                  https://api.thinkclear.xyz
-                                                                     Coolify → mindmap-api
+                                                                     Coolify → thinkclear-api
                                                                                 ▼
                                                                              MongoDB
 
@@ -119,11 +119,11 @@ an MCP client, who then lands on a 404 where the consent screen should be.
 Import the repository. **Leave the Root Directory at the repository root** —
 `vercel.json` at the root supplies the install, build, and output settings, and
 the build has to run from there because `apps/web` compiles against
-`@mindmap/shared`'s `dist`, which turbo builds first:
+`@thinkclear/shared`'s `dist`, which turbo builds first:
 
 ```
 installCommand    pnpm install --frozen-lockfile
-buildCommand      pnpm turbo run build --filter=@mindmap/web
+buildCommand      pnpm turbo run build --filter=@thinkclear/web
 outputDirectory   apps/web/dist
 ```
 
@@ -178,7 +178,7 @@ The **Production** environment and every repository variable are already set on
 |---|---|---|
 | `COOLIFY_URL` | `http://<coolify-host>:8000` | where Coolify's API answers |
 | `COOLIFY_VIA_TAILSCALE` | `true` | set when that address is a Tailscale CGNAT one, so the API is tailnet-only |
-| `COOLIFY_APP_UUID` | `<app-uuid>` | Coolify names the app `mindmap:main-<uuid>` |
+| `COOLIFY_APP_UUID` | `<app-uuid>` | Coolify names the app `thinkclear:main-<uuid>` |
 | `APP_ORIGIN` | `https://app.thinkclear.xyz` | the post-deploy health check |
 
 `COOLIFY_APP_UUID` is the one worth checking before the first deploy, because it

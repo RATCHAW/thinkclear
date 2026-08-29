@@ -10,7 +10,7 @@ import {
 } from "react";
 import { useNodesData, useReactFlow } from "@xyflow/react";
 import { GripVertical, Loader2, X } from "lucide-react";
-import { MAX_NOTE_LENGTH } from "@mindmap/shared";
+import { MAX_NOTE_LENGTH } from "@thinkclear/shared";
 import { Button } from "@/components/ui/button";
 import { NoteMarkdown } from "@/components/note-markdown-lazy";
 import type { TopicNode } from "@/components/mindmap-canvas";

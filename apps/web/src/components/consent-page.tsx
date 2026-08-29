@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check, Loader2, ShieldCheck } from "lucide-react";
-import { MCP_SCOPE_DESCRIPTIONS } from "@mindmap/shared";
+import { MCP_SCOPE_DESCRIPTIONS } from "@thinkclear/shared";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -65,7 +65,7 @@ export function ConsentPage({
       <Card className="w-full max-w-md">
         <CardHeader>
           <span className="text-caption-bold uppercase text-graphite">
-            Mindmap
+            ThinkClear
           </span>
           <CardTitle className="text-display-md">
             Allow {clientName ?? "this app"} to use your mindmaps?

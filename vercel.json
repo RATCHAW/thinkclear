@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm turbo run build --filter=@mindmap/web",
+  "buildCommand": "pnpm turbo run build --filter=@thinkclear/web",
   "outputDirectory": "apps/web/dist",
   "github": { "silent": true },
   "headers": [

@@ -15,7 +15,7 @@ import {
 } from "@modelcontextprotocol/node";
 import type { Request, Response } from "express";
 import type { AuthInfo } from "@modelcontextprotocol/server";
-import { MCP_SCOPES, parseScopeClaim } from "@mindmap/shared";
+import { MCP_SCOPES, parseScopeClaim } from "@thinkclear/shared";
 import { APP_URL, auth, MCP_RESOURCE_URL } from "../auth";
 import { McpService } from "./mcp.service";
 

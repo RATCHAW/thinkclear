@@ -441,8 +441,8 @@
     }
   },
   "info": {
-    "title": "Mindmap API",
-    "description": "Mindmap app API",
+    "title": "ThinkClear API",
+    "description": "ThinkClear app API",
     "version": "0.0.1",
     "contact": {}
   },

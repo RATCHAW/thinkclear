@@ -1,6 +1,6 @@
 import { NotFoundException } from "@nestjs/common";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MAX_CONVERSATION_MESSAGES } from "@mindmap/shared";
+import { MAX_CONVERSATION_MESSAGES } from "@thinkclear/shared";
 import { ConversationsService } from "../src/conversations/conversations.service";
 
 const conversationId = "507f1f77bcf86cd799439011";

@@ -117,7 +117,7 @@ jobs:
       # imports the real AuthModule, so this needs the Mongo service above.
       - name: Test
         env:
-          MONGODB_URI: mongodb://localhost:27017/mindmap-ci
+          MONGODB_URI: mongodb://localhost:27017/thinkclear-ci
           BETTER_AUTH_SECRET: ci-only-secret-not-used-to-sign-anything-real
         run: pnpm test
 
@@ -129,7 +129,7 @@ jobs:
       # commit, so catching it here is catching it for both halves.
       - name: Check the generated API contract is current
         env:
-          MONGODB_URI: mongodb://localhost:27017/mindmap-ci
+          MONGODB_URI: mongodb://localhost:27017/thinkclear-ci
           BETTER_AUTH_SECRET: ci-only-secret-not-used-to-sign-anything-real
         run: |
           pnpm openapi

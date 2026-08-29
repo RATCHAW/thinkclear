@@ -13,11 +13,11 @@ WORKDIR /repo
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/web/package.json apps/web/
-RUN pnpm install --frozen-lockfile --filter @mindmap/web...
+RUN pnpm install --frozen-lockfile --filter @thinkclear/web...
 
 COPY packages/shared packages/shared
 COPY apps/web apps/web
-RUN pnpm --filter @mindmap/shared build && pnpm --filter @mindmap/web build
+RUN pnpm --filter @thinkclear/shared build && pnpm --filter @thinkclear/web build
 
 FROM nginx:alpine@sha256:db35bfc6b2951e7f8a72db5db120288c127ffaeeb4a6d4b95a26fead017d5913
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf

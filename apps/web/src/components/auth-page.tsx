@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { signInSchema, signUpSchema } from "@mindmap/shared";
+import { signInSchema, signUpSchema } from "@thinkclear/shared";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,7 +54,7 @@ export function AuthPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <span className="text-caption-bold uppercase text-graphite">
-            Mindmap
+            ThinkClear
           </span>
           <CardTitle className="text-display-md">
             {mode === "sign-in" ? "Sign in" : "Create an account"}

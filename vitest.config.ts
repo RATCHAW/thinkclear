@@ -9,7 +9,7 @@ export default defineConfig({
       "@": resolve(repositoryRoot, "apps/web/src"),
       // Tests always exercise the checked-out source, never a stale workspace
       // build left in packages/shared/dist.
-      "@mindmap/shared": resolve(
+      "@thinkclear/shared": resolve(
         repositoryRoot,
         "packages/shared/src/index.ts",
       ),

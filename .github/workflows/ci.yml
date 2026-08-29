@@ -56,7 +56,7 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      # From the root, so turbo builds @mindmap/shared first — apps/api and
+      # From the root, so turbo builds @thinkclear/shared first — apps/api and
       # apps/web both typecheck against its dist, and a stale one checks the
       # wrong thing.
       - name: Typecheck
@@ -76,7 +76,7 @@ jobs:
       # diffing is the only thing that notices.
       - name: Check the generated API contract is current
         env:
-          MONGODB_URI: mongodb://localhost:27017/mindmap-ci
+          MONGODB_URI: mongodb://localhost:27017/thinkclear-ci
           BETTER_AUTH_SECRET: ci-only-secret-not-used-to-sign-anything-real
         run: |
           pnpm openapi
@@ -125,16 +125,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # apps/api resolves @mindmap/shared through its package.json `main`, which
-      # points into dist — so the api:e2e suites that import it cannot even be
-      # collected until it exists. Every other job gets this for free from
-      # `pnpm typecheck`, whose turbo task dependsOn ^build; this one runs
+      # apps/api resolves @thinkclear/shared through its package.json `main`,
+      # which points into dist — so the api:e2e suites that import it cannot
+      # even be collected until it exists. Every other job gets this for free
+      # from `pnpm typecheck`, whose turbo task dependsOn ^build; this one runs
       # vitest with no turbo task ahead of it, so it has to ask.
       #
       # (web:e2e does not need it — apps/web/vitest.config.ts aliases the
       # package to packages/shared/src, so it reads the source directly.)
       - name: Build the shared package
-        run: pnpm --filter @mindmap/shared build
+        run: pnpm --filter @thinkclear/shared build
 
       # Chromium only — web:e2e declares one browser instance, and pulling three
       # would cost more than the tests do. Deliberately without `--with-deps`:
@@ -147,7 +147,7 @@ jobs:
 
       - name: Run the end-to-end suite
         env:
-          MONGODB_URI: mongodb://localhost:27017/mindmap-ci
+          MONGODB_URI: mongodb://localhost:27017/thinkclear-ci
           # Better Auth mints a random secret per process when this is unset,
           # which is survivable in one process and not worth leaving to chance
           # in the suite that signs and verifies its own tokens.

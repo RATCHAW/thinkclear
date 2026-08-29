@@ -92,13 +92,13 @@ jobs:
 
       - name: Build production images
         run: |
-          docker build --provenance=false -f apps/api/Dockerfile -t mindmap-audit-api .
-          docker build --provenance=false -f apps/web/Dockerfile -t mindmap-audit-web .
+          docker build --provenance=false -f apps/api/Dockerfile -t thinkclear-audit-api .
+          docker build --provenance=false -f apps/web/Dockerfile -t thinkclear-audit-web .
 
       - name: Fail on fixed high or critical image vulnerabilities
         run: |
           mkdir -p "$RUNNER_TEMP/trivy-cache"
-          for image in mindmap-audit-api mindmap-audit-web; do
+          for image in thinkclear-audit-api thinkclear-audit-web; do
             docker run --rm \
               -v /var/run/docker.sock:/var/run/docker.sock \
               -v "$RUNNER_TEMP/trivy-cache:/root/.cache" \

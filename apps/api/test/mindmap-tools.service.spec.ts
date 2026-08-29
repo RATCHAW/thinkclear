@@ -1,6 +1,6 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { findMindmapGraphIssues } from "@mindmap/shared";
+import { findMindmapGraphIssues } from "@thinkclear/shared";
 import { MindmapToolsService } from "../src/ai/mindmap-tools.service";
 
 const ownerId = "owner-1";

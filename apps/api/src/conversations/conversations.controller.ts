@@ -25,7 +25,7 @@ import {
   updateConversationSchema,
   type CreateConversationInput,
   type UpdateConversationInput,
-} from "@mindmap/shared";
+} from "@thinkclear/shared";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import {
   ConversationDto,

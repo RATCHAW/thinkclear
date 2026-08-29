@@ -1,5 +1,5 @@
 {
-  "name": "mindmap",
+  "name": "thinkclear",
   "private": true,
   "license": "AGPL-3.0-only",
   "packageManager": "pnpm@10.17.0",
@@ -20,7 +20,7 @@
     "test:e2e": "vitest run --project api:e2e --project web:e2e",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:install-browser": "pnpm --filter @mindmap/web exec playwright install chromium"
+    "test:install-browser": "pnpm --filter @thinkclear/web exec playwright install chromium"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

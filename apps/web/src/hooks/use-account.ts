@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { SocialProvider } from "@mindmap/shared";
+import type { SocialProvider } from "@thinkclear/shared";
 import { api } from "@/lib/api-client";
 import { authClient } from "@/lib/auth-client";
 import { leaveApp } from "@/lib/navigation";
@@ -7,7 +7,7 @@ import { leaveApp } from "@/lib/navigation";
 /**
  * Everything the account screen reads and writes.
  *
- * It spans two APIs on purpose. The mindmap API answers what *this deployment*
+ * It spans two APIs on purpose. The ThinkClear API answers what *this deployment*
  * offers — which social providers it has credentials for — while Better Auth
  * answers what *this person* has done with it: which sign-in methods are
  * linked, and which agent clients hold a grant. Neither knows the other's half,

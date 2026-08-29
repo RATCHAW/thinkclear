@@ -1,7 +1,7 @@
 import { Controller, Get } from "@nestjs/common";
 import { ApiOkResponse, ApiProperty, ApiTags } from "@nestjs/swagger";
 import { Session, UserSession } from "@thallesp/nestjs-better-auth";
-import { SOCIAL_PROVIDERS as KNOWN_SOCIAL_PROVIDERS } from "@mindmap/shared";
+import { SOCIAL_PROVIDERS as KNOWN_SOCIAL_PROVIDERS } from "@thinkclear/shared";
 import { SOCIAL_PROVIDERS } from "../auth";
 
 export class MeUserDto {

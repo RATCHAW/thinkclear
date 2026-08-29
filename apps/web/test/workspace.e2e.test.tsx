@@ -383,7 +383,9 @@ describe("mindmap workspace journey", () => {
       .toBeVisible();
     await expect
       .element(
-        panel.getByText(`claude mcp add --transport http mindmap ${endpoint}`),
+        panel.getByText(
+          `claude mcp add --transport http thinkclear ${endpoint}`,
+        ),
       )
       .toBeVisible();
 
@@ -391,7 +393,7 @@ describe("mindmap workspace journey", () => {
     // is what dynamic registration buys and why no step asks for a token.
     await panel.getByRole("button", { name: "Codex" }).click();
     await expect
-      .element(panel.getByText(`codex mcp add mindmap --url ${endpoint}`))
+      .element(panel.getByText(`codex mcp add thinkclear --url ${endpoint}`))
       .toBeVisible();
 
     // The consent screen promises this list exists, named by what the client

@@ -5,7 +5,7 @@ import {
   SOCIAL_PROVIDER_LABELS,
   isSocialProvider,
   type SocialProvider,
-} from "@mindmap/shared";
+} from "@thinkclear/shared";
 import { Button } from "@/components/ui/button";
 import {
   useConnectProvider,

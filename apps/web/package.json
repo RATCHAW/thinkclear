@@ -1,5 +1,5 @@
 {
-  "name": "@mindmap/web",
+  "name": "@thinkclear/web",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
     "@ai-sdk/react": "^4.0.86",
     "@better-auth/oauth-provider": "1.7.2",
     "@fontsource-variable/manrope": "^5.3.0",
-    "@mindmap/shared": "workspace:*",
+    "@thinkclear/shared": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-slot": "^1.2.3",

@@ -4,7 +4,7 @@ import { isValidObjectId, Model } from "mongoose";
 import {
   DEFAULT_CONVERSATION_TITLE,
   MAX_CONVERSATION_MESSAGES,
-} from "@mindmap/shared";
+} from "@thinkclear/shared";
 import { Conversation, ConversationDocument } from "./conversation.schema";
 
 /**

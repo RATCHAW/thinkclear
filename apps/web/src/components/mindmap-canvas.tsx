@@ -36,7 +36,7 @@ import {
   canConnect,
   descendantsOf,
   ROOT_NODE_ID,
-} from "@mindmap/shared";
+} from "@thinkclear/shared";
 import { prefetchNoteMarkdown } from "@/components/note-markdown-lazy";
 import { NotePreview } from "@/components/note-preview";
 import { NoteWindows } from "@/components/note-window";

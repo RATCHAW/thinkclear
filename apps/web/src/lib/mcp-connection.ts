@@ -58,15 +58,15 @@ export const MCP_CLIENTS: McpClient[] = [
     steps: (endpoint) => [
       {
         text: "Add the server.",
-        snippet: `claude mcp add --transport http mindmap ${endpoint}`,
+        snippet: `claude mcp add --transport http thinkclear ${endpoint}`,
       },
       {
         text: "Sign in. A browser opens on the consent screen, and the tokens are stored and refreshed for you.",
-        snippet: "claude mcp login mindmap",
+        snippet: "claude mcp login thinkclear",
       },
     ],
     aside: () => ({
-      text: "Before Claude Code 2.1.186 there is no login command: run /mcp inside a session and pick mindmap from the panel instead.",
+      text: "Before Claude Code 2.1.186 there is no login command: run /mcp inside a session and pick thinkclear from the panel instead.",
     }),
   },
   {
@@ -75,16 +75,16 @@ export const MCP_CLIENTS: McpClient[] = [
     steps: (endpoint) => [
       {
         text: "Add the server.",
-        snippet: `codex mcp add mindmap --url ${endpoint}`,
+        snippet: `codex mcp add thinkclear --url ${endpoint}`,
       },
       {
         text: "Sign in.",
-        snippet: "codex mcp login mindmap",
+        snippet: "codex mcp login thinkclear",
       },
     ],
     aside: (endpoint) => ({
       text: "The same entry, written into ~/.codex/config.toml by hand.",
-      snippet: `[mcp_servers.mindmap]\nurl = "${endpoint}"\nauth = "oauth"`,
+      snippet: `[mcp_servers.thinkclear]\nurl = "${endpoint}"\nauth = "oauth"`,
     }),
   },
   {
@@ -101,7 +101,7 @@ export const MCP_CLIENTS: McpClient[] = [
     ],
     aside: (endpoint) => ({
       text: "A client configured from a file wants roughly this.",
-      snippet: `{\n  "mcpServers": {\n    "mindmap": {\n      "type": "streamable-http",\n      "url": "${endpoint}"\n    }\n  }\n}`,
+      snippet: `{\n  "mcpServers": {\n    "thinkclear": {\n      "type": "streamable-http",\n      "url": "${endpoint}"\n    }\n  }\n}`,
     }),
   },
 ];
