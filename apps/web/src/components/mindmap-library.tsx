@@ -22,8 +22,12 @@ import {
   useMindmaps,
   useUpdateMindmap,
 } from "@/hooks/use-mindmaps";
+import {
+  openMindmap,
+  setLibraryOpen,
+  useWorkspaceRoute,
+} from "@/hooks/use-workspace-route";
 import { signOut } from "@/lib/auth-client";
-import { useUiStore } from "@/stores/ui-store";
 
 /**
  * The mindmap library: a floating sheet hung off a trigger in the top-left of
@@ -31,13 +35,11 @@ import { useUiStore } from "@/stores/ui-store";
  * so the canvas underneath stays exactly one thing.
  */
 export function MindmapLibrary({ user }: { user: { email: string } }) {
-  const open = useUiStore((state) => state.libraryOpen);
-  const setOpen = useUiStore((state) => state.setLibraryOpen);
-  const selectMindmap = useUiStore((state) => state.selectMindmap);
+  const { libraryOpen: open } = useWorkspaceRoute();
   const activeMindmap = useActiveMindmap();
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={setLibraryOpen}>
       <SheetTrigger asChild>
         {/* A nav control, not a CTA: `nav-link` type on {colors.canvas} with the
             Elevation level-1 hairline. Filling it or lifting it with a shadow
@@ -57,10 +59,7 @@ export function MindmapLibrary({ user }: { user: { email: string } }) {
         open={open}
         user={user}
         activeMindmapId={activeMindmap?._id ?? null}
-        onOpenMindmap={(id) => {
-          selectMindmap(id);
-          setOpen(false);
-        }}
+        onOpenMindmap={openMindmap}
       />
     </Sheet>
   );

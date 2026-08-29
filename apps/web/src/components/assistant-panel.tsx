@@ -53,8 +53,14 @@ import {
   useCreateConversation,
 } from "@/hooks/use-conversations";
 import { useActiveMindmap, mindmapKeys } from "@/hooks/use-mindmaps";
+import {
+  openConversation,
+  openMindmap,
+  setAssistantOpen,
+  setHistoryOpen,
+  useWorkspaceRoute,
+} from "@/hooks/use-workspace-route";
 import { cn } from "@/lib/utils";
-import { useUiStore } from "@/stores/ui-store";
 
 /**
  * The assistant: a floating panel over the workspace that manages the user's
@@ -67,15 +73,11 @@ import { useUiStore } from "@/stores/ui-store";
  * to chat history — a layer over the conversation, one press away.
  */
 export function AssistantPanel() {
-  const open = useUiStore((state) => state.assistantOpen);
-  const setOpen = useUiStore((state) => state.setAssistantOpen);
-  const historyOpen = useUiStore((state) => state.historyOpen);
-  const setHistoryOpen = useUiStore((state) => state.setHistoryOpen);
-  const activeConversationId = useUiStore(
-    (state) => state.activeConversationId,
-  );
-  const selectConversation = useUiStore((state) => state.selectConversation);
-  const selectMindmap = useUiStore((state) => state.selectMindmap);
+  const {
+    assistantOpen: open,
+    historyOpen,
+    conversationId: activeConversationId,
+  } = useWorkspaceRoute();
   const activeMindmap = useActiveMindmap();
   const queryClient = useQueryClient();
 
@@ -164,11 +166,11 @@ export function AssistantPanel() {
           output?.mindmapId &&
           !output.error
         ) {
-          selectMindmap(output.mindmapId);
+          openMindmap(output.mindmapId);
         }
       }
     }
-  }, [messages, queryClient, selectMindmap]);
+  }, [messages, queryClient]);
 
   /**
    * The text of a message whose conversation could not be created. The prompt
@@ -189,7 +191,7 @@ export function AssistantPanel() {
         // Adopted, not seeded: the message about to be sent is already the
         // truth for this conversation.
         setSeededId(conversationId);
-        selectConversation(conversationId);
+        openConversation(conversationId);
       } catch {
         setUnsentText(text);
         return;
@@ -215,17 +217,17 @@ export function AssistantPanel() {
     setUnsentText(null);
     setSeededId(null);
     setMessages([]);
-    selectConversation(null);
+    openConversation(null);
   }
 
-  function openConversation(id: string) {
+  function handleOpenConversation(id: string) {
     if (id === activeConversationId) {
       setHistoryOpen(false);
       return;
     }
     if (busy) void stop();
     setUnsentText(null);
-    selectConversation(id);
+    openConversation(id);
   }
 
   const isEmptyNewChat = activeConversationId === null && messages.length === 0;
@@ -239,7 +241,7 @@ export function AssistantPanel() {
         if (event.key !== "Escape") return;
         event.stopPropagation();
         if (historyOpen) setHistoryOpen(false);
-        else setOpen(false);
+        else setAssistantOpen(false);
       }}
       className={cn(
         // Floating Modal treatment, mirrored from the library sheet: paper on
@@ -289,7 +291,7 @@ export function AssistantPanel() {
             variant="ghost"
             size="icon-sm"
             aria-label="Close assistant"
-            onClick={() => setOpen(false)}
+            onClick={() => setAssistantOpen(false)}
           >
             <X />
           </Button>
@@ -385,7 +387,7 @@ export function AssistantPanel() {
         <AssistantHistory
           open={historyOpen}
           activeConversationId={activeConversationId}
-          onSelect={openConversation}
+          onSelect={handleOpenConversation}
           onNewChat={startNewChat}
           onDeleted={(id) => {
             if (id === activeConversationId) startNewChat();
