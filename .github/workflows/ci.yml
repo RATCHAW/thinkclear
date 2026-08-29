@@ -91,6 +91,22 @@ jobs:
     name: End-to-end
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      # mcp.e2e-spec.ts imports the real AuthModule — deliberately, so that
+      # removing @Public() from the MCP routes fails the suite rather than
+      # silently breaking every client — and Better Auth reaches Mongo for the
+      # JWKS keys and the tokens it issues. The rest of api:e2e mocks its
+      # services and web:e2e uses an in-memory API boundary, but that one file
+      # is enough to need a database.
+      mongo:
+        image: mongo:8@sha256:e0ce8c35124d4a9f9785532d1f268f39e9728ffa1cb38f46fa482436424c4bd3
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Check out the pull request
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -129,7 +145,11 @@ jobs:
         timeout-minutes: 5
         run: pnpm test:install-browser
 
-      # api:e2e drives the Nest HTTP boundary with mocked services and web:e2e
-      # uses an in-memory API boundary, so neither needs MongoDB.
       - name: Run the end-to-end suite
+        env:
+          MONGODB_URI: mongodb://localhost:27017/mindmap-ci
+          # Better Auth mints a random secret per process when this is unset,
+          # which is survivable in one process and not worth leaving to chance
+          # in the suite that signs and verifies its own tokens.
+          BETTER_AUTH_SECRET: ci-only-secret-not-used-to-sign-anything-real
         run: pnpm test:e2e

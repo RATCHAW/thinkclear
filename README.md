@@ -26,8 +26,15 @@ mindmap canvas, with the library sheet behind the trigger in the top-left.
 
 The whole monorepo uses Vitest. Fast specs cover shared domain rules and API
 services; end-to-end projects exercise the Nest HTTP boundary and the React app
-in real headless Chromium. Browser tests use an in-memory API boundary, so the
-suite does not require MongoDB or running dev servers.
+in real headless Chromium. Browser tests use an in-memory API boundary, so they
+need no running dev servers.
+
+One exception is worth knowing before you trust a green run: `api:e2e` needs
+**MongoDB**, because `mcp.e2e-spec.ts` imports the real `AuthModule` and Better
+Auth reaches the database for the keys and tokens it issues. Everything else
+mocks its services. `docker compose up -d mongo` covers it — and since that
+container tends to be running already, a suite that passes locally can still
+fail on a machine without it.
 
 ```bash
 pnpm test             # everything, once

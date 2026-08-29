@@ -113,8 +113,12 @@ jobs:
         run: pnpm test:install-browser
 
       # The whole suite, not just the specs: a push can reach main without ever
-      # passing CI, and this is the last gate before production.
+      # passing CI, and this is the last gate before production. mcp.e2e-spec.ts
+      # imports the real AuthModule, so this needs the Mongo service above.
       - name: Test
+        env:
+          MONGODB_URI: mongodb://localhost:27017/mindmap-ci
+          BETTER_AUTH_SECRET: ci-only-secret-not-used-to-sign-anything-real
         run: pnpm test
 
       - name: Build
