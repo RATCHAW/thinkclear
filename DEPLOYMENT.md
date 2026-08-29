@@ -93,6 +93,8 @@ running" — and a deploy is gated on the tests rather than on a push landing.
 | `CLIENT_ORIGIN` | `https://app.thinkclear.xyz` | comma-separated; `APP_URL` is trusted regardless |
 | `MCP_JWKS_URL` | `http://127.0.0.1:3000/api/auth/jwks` | verifying our own tokens has no reason to leave the container |
 | `PORT` | `3000` | |
+| `DOCS_USER` | `openssl rand -hex 8` | HTTP basic auth on `/docs` and the raw spec beside it |
+| `DOCS_PASSWORD` | `openssl rand -base64 32` | leave either unset and the docs are not served at all |
 | `LLM_GATEWAY_API_KEY` | from [llmgateway.io](https://llmgateway.io) | absent, `POST /api/chat` answers 503 and the rest of the app works |
 | `AI_CHAT_MODEL` | `deepseek/deepseek-v4-flash` | vendor/model |
 | `MCP_RESOURCE_URL` | *unset* | defaults to `$APP_URL/api/mcp`, which is what clients connect to |
@@ -166,9 +168,9 @@ The **Production** environment and every repository variable are already set on
 
 | Variable | Value | |
 |---|---|---|
-| `COOLIFY_URL` | `http://100.111.77.27:8000` | the same Coolify instance vivace deploys to |
-| `COOLIFY_VIA_TAILSCALE` | `true` | that address is a Tailscale CGNAT one, so the API is tailnet-only |
-| `COOLIFY_APP_UUID` | `yfj0jwzuj93qos6aa0dwe2jb` | Coolify names the app `mindmap:main-<uuid>` |
+| `COOLIFY_URL` | `http://<coolify-host>:8000` | where Coolify's API answers |
+| `COOLIFY_VIA_TAILSCALE` | `true` | set when that address is a Tailscale CGNAT one, so the API is tailnet-only |
+| `COOLIFY_APP_UUID` | `<app-uuid>` | Coolify names the app `mindmap:main-<uuid>` |
 | `APP_ORIGIN` | `https://app.thinkclear.xyz` | the post-deploy health check |
 
 `COOLIFY_APP_UUID` is the one worth checking before the first deploy, because it
@@ -177,7 +179,7 @@ something else rather than failing:
 
 ```bash
 curl -sS -H "Authorization: Bearer $COOLIFY_TOKEN" \
-  "$COOLIFY_URL/api/v1/applications/yfj0jwzuj93qos6aa0dwe2jb" | jq '{name, fqdn, git_branch}'
+  "$COOLIFY_URL/api/v1/applications/$COOLIFY_APP_UUID" | jq '{name, fqdn, git_branch}'
 ```
 
 **Still to set — the deploy workflow cannot run without them.** The three
@@ -196,10 +198,10 @@ pair is an OAuth client with the `tag:ci` tag; scope that tag in your ACL to tha
 one host and port — the deploy job holds credentials to production and should be
 able to reach nothing else.
 
-The environment has no protection rules, matching vivace's. If you want
-deployments to it restricted to `main`, that is one call — the manual rollback
-path still works, since `workflow_dispatch` runs the workflow on `main` and
-checks out the older `ref` from there:
+The environment has no protection rules. If you want deployments to it
+restricted to `main`, that is one call — the manual rollback path still works,
+since `workflow_dispatch` runs the workflow on `main` and checks out the older
+`ref` from there:
 
 ```bash
 gh api -X PUT repos/RATCHAW/thinkclear/environments/Production \
