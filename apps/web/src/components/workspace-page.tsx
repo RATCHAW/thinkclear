@@ -4,7 +4,11 @@ import { AssistantPanel } from "@/components/assistant-panel";
 import { MindmapCanvas } from "@/components/mindmap-canvas";
 import { MindmapLibrary } from "@/components/mindmap-library";
 import { useActiveMindmap } from "@/hooks/use-mindmaps";
-import { useUiStore } from "@/stores/ui-store";
+import {
+  setAssistantOpen,
+  setLibraryOpen,
+  useWorkspaceRoute,
+} from "@/hooks/use-workspace-route";
 
 /**
  * The signed-in shell: the canvas is the page, and everything else floats over
@@ -21,9 +25,7 @@ export function WorkspacePage({
   user: { email: string; name: string };
 }) {
   const activeMindmap = useActiveMindmap();
-  const setLibraryOpen = useUiStore((state) => state.setLibraryOpen);
-  const assistantOpen = useUiStore((state) => state.assistantOpen);
-  const setAssistantOpen = useUiStore((state) => state.setAssistantOpen);
+  const { assistantOpen } = useWorkspaceRoute();
 
   return (
     <div className="relative h-svh w-full overflow-hidden">

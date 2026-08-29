@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react/pure";
 import App from "@/App";
-import { useUiStore } from "@/stores/ui-store";
+import { visit } from "./browser-url";
 import { createFakeApi } from "./fake-api";
 
 const auth = vi.hoisted(() => ({
@@ -24,7 +24,7 @@ describe("application session routing", () => {
   beforeEach(() => {
     auth.session.data = null;
     auth.session.isPending = false;
-    useUiStore.setState({ selectedMindmapId: null, libraryOpen: false });
+    visit("/");
   });
 
   afterEach(() => {

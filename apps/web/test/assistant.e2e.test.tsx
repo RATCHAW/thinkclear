@@ -4,20 +4,14 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react/pure";
 import { WorkspacePage } from "@/components/workspace-page";
-import { useUiStore } from "@/stores/ui-store";
+import { currentUrl, visit } from "./browser-url";
 import { conversationFixture, createFakeApi } from "./fake-api";
 
 vi.mock("@/lib/auth-client", () => ({ signOut: vi.fn() }));
 
 describe("assistant journey", () => {
   beforeEach(() => {
-    useUiStore.setState({
-      selectedMindmapId: null,
-      libraryOpen: false,
-      assistantOpen: false,
-      activeConversationId: null,
-      historyOpen: false,
-    });
+    visit("/");
   });
 
   afterEach(() => {
@@ -64,6 +58,10 @@ describe("assistant journey", () => {
         }),
       )
       .toBeVisible();
+
+    // Which chat you are in, and which surface is showing it, is all in the
+    // URL — this session can be linked to and reopened exactly as it stands.
+    expect(currentUrl()).toBe(`/?assistant=history&chat=${conversation._id}`);
   });
 
   test("reopens, renames, and deletes a stored chat", async () => {
@@ -98,9 +96,10 @@ describe("assistant journey", () => {
     await expect
       .element(screen.getByText("No chats yet.", { exact: false }))
       .toBeVisible();
-    // Deleting the open chat drops the panel back to a fresh one.
+    // Deleting the open chat drops the panel back to a fresh one — no chat in
+    // the URL, and nothing left pointing at the conversation that is gone.
     await expect.poll(() => api.conversations()).toEqual([]);
-    expect(useUiStore.getState().activeConversationId).toBeNull();
+    await expect.poll(currentUrl).toBe("/?assistant");
   });
 });
 

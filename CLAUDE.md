@@ -58,7 +58,7 @@ web :5173), so treat servers as a checked-out resource:
 Turborepo + pnpm workspaces, three packages:
 
 - `apps/api` — NestJS 11, Mongoose, Better Auth, Swagger, Vercel AI SDK
-- `apps/web` — Vite + React 19, Tailwind v4, shadcn/ui, React Flow, React Query, zustand
+- `apps/web` — Vite + React 19, Tailwind v4, shadcn/ui, React Flow, React Query
 - `packages/shared` — zod schemas + types imported by both
 
 ### The API contract is generated, in two hops
@@ -171,11 +171,24 @@ history — share `components/list-row.tsx`.
   are deliberately siblings, not parent and child — every finished turn
   invalidates the list, and a detail nested under that prefix would refetch on
   the same beat and race the live `useChat` messages.
-- **UI-only state → zustand** (`stores/ui-store.ts`). Nothing fetched belongs
-  here. `selectedMindmapId` and `activeConversationId` are intentionally never
-  reconciled against the server — `useActiveMindmap()` resolves the former
-  against the fetched list, so a deleted mindmap's or conversation's id is
-  inert rather than a dangling reference.
+- **UI state → the URL.** There is no client-side UI store; `window.location`
+  is it. `lib/workspace-route.ts` is the whole grammar — `/mindmaps/<id>` for
+  the canvas, `?library`, `?assistant` / `?assistant=history`, and `?chat=<id>`
+  for the conversation the assistant holds whether or not the panel is open —
+  and `hooks/use-workspace-route.ts` binds it to React with
+  `useSyncExternalStore` over `popstate`. Nothing mirrors the URL, so Back, a
+  reload, and a pasted link all land in the same place, and a caller that can
+  only write a URL (the point: assistant-driven navigation) can drive the app.
+  Navigate through the named transitions in that hook file rather than writing
+  `history.pushState` — they hold the rules about what closes what, and keep a
+  move that changes two things (open a mindmap, close the library) to one
+  history entry. Invariants that *can* be expressed as grammar are: the
+  serializer can't write history without the panel, which is what makes
+  "closing the assistant puts history away" impossible to get wrong.
+- The ids in the URL are intentionally never reconciled against the server —
+  `useActiveMindmap()` resolves the mindmap id against the fetched list, so a
+  deleted mindmap's or conversation's id, or a stale link to one, is inert
+  rather than a dangling reference to clean up.
 
 The canvas (`components/mindmap-canvas.tsx`) is keyed by mindmap id so switching
 maps remounts the editor; React Flow state is seeded once from the fetched

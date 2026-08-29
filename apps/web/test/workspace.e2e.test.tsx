@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react/pure";
 import { WorkspacePage } from "@/components/workspace-page";
-import { useUiStore } from "@/stores/ui-store";
+import { currentUrl, visit } from "./browser-url";
 import { createFakeApi, mindmapFixture } from "./fake-api";
 
 const auth = vi.hoisted(() => ({ signOut: vi.fn() }));
@@ -17,10 +17,7 @@ describe("mindmap workspace journey", () => {
   beforeEach(() => {
     auth.signOut.mockReset();
     auth.signOut.mockResolvedValue({ data: {}, error: null });
-    useUiStore.setState({
-      selectedMindmapId: null,
-      libraryOpen: false,
-    });
+    visit("/");
   });
 
   afterEach(() => {
@@ -52,6 +49,12 @@ describe("mindmap workspace journey", () => {
       .toBeVisible();
     expect(api.mindmaps()).toHaveLength(1);
 
+    // Creating opens the new mindmap, and opening one is a navigation: the
+    // canvas is addressable, and the library that made the choice has closed
+    // behind it.
+    await expect.poll(currentUrl).toBe(`/mindmaps/${api.mindmaps()[0]?._id}`);
+
+    // Which is why the trigger now reads "Roadmap" rather than "Mindmaps".
     await screen.getByRole("button", { name: "Roadmap", exact: true }).click();
     await expect.element(screen.getByText("1 mindmap")).toBeVisible();
     await screen.getByRole("button", { name: "Rename Roadmap" }).click();
@@ -74,7 +77,7 @@ describe("mindmap workspace journey", () => {
   test("edits a branch and autosaves the graph", async () => {
     const api = createFakeApi({ mindmaps: [mindmapFixture()] });
     vi.stubGlobal("fetch", vi.fn(api.fetch));
-    useUiStore.setState({ selectedMindmapId: "mindmap-1" });
+    visit("/mindmaps/mindmap-1");
     const screen = await render(<WorkspacePage user={user} />, {
       wrapper: testProviders(),
     });

@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
+import { useWorkspaceRoute } from "@/hooks/use-workspace-route";
 import { api } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
-import { useUiStore } from "@/stores/ui-store";
 
 export type Mindmap = components["schemas"]["MindmapDto"];
 export type MindmapNode = components["schemas"]["MindmapNodeDto"];
@@ -24,15 +24,16 @@ export function useMindmaps() {
 }
 
 /**
- * The single place the selected id is resolved against real data. Deleting the
- * open mindmap therefore needs no cleanup anywhere — the id stops matching and
- * the app falls back to the empty state on its own.
+ * The single place the id in the URL is resolved against real data. Deleting
+ * the open mindmap therefore needs no cleanup anywhere — the id stops matching
+ * and the app falls back to the empty state on its own, which is also what a
+ * hand-written or stale link to a mindmap that no longer exists does.
  */
 export function useActiveMindmap(): Mindmap | null {
-  const selectedMindmapId = useUiStore((state) => state.selectedMindmapId);
+  const { mindmapId } = useWorkspaceRoute();
   const { data } = useMindmaps();
-  if (!selectedMindmapId) return null;
-  return data?.find((mindmap) => mindmap._id === selectedMindmapId) ?? null;
+  if (!mindmapId) return null;
+  return data?.find((mindmap) => mindmap._id === mindmapId) ?? null;
 }
 
 export function useCreateMindmap() {
