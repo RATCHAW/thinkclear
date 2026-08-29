@@ -11,6 +11,8 @@ interface UiState {
   selectMindmap: (id: string | null) => void;
   libraryOpen: boolean;
   setLibraryOpen: (open: boolean) => void;
+  chatOpen: boolean;
+  setChatOpen: (open: boolean) => void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
@@ -18,4 +20,6 @@ export const useUiStore = create<UiState>((set) => ({
   selectMindmap: (id) => set({ selectedMindmapId: id }),
   libraryOpen: false,
   setLibraryOpen: (open) => set({ libraryOpen: open }),
+  chatOpen: false,
+  setChatOpen: (open) => set({ chatOpen: open }),
 }));

@@ -2,7 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { MongooseModule } from "@nestjs/mongoose";
 import { AuthModule } from "@thallesp/nestjs-better-auth";
-import { AiService } from "./ai/ai.service";
+import { AiModule } from "./ai/ai.module";
 import { auth } from "./auth";
 import { MeController } from "./me/me.controller";
 import { MindmapsModule } from "./mindmaps/mindmaps.module";
@@ -15,8 +15,8 @@ import { MindmapsModule } from "./mindmaps/mindmaps.module";
     ),
     AuthModule.forRoot({ auth }),
     MindmapsModule,
+    AiModule,
   ],
   controllers: [MeController],
-  providers: [AiService],
 })
 export class AppModule {}
