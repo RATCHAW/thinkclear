@@ -59,20 +59,33 @@ export function useWorkspaceRoute(): WorkspaceRoute {
  * pushes a history entry — on a workspace where opening things *is* the
  * navigation, Back undoing the last thing you opened is what the button is
  * expected to do.
+ *
+ * `replace` is for the exception: a move that rearranges what is already open
+ * rather than opening anything. Raising a note window is the only one, and it
+ * happens on every click into a window — pushing there would fill history with
+ * entries for looking at things.
  */
-function navigate(patch: Partial<WorkspaceRoute>): void {
+function navigate(
+  patch: Partial<WorkspaceRoute>,
+  { replace = false } = {},
+): void {
   const url = workspaceRouteUrl({ ...getRoute(), ...patch });
   if (url === currentUrl()) return;
-  window.history.pushState(null, "", url);
+  if (replace) window.history.replaceState(null, "", url);
+  else window.history.pushState(null, "", url);
   notify();
 }
 
 /**
  * Opens a mindmap on the canvas, and puts the library away — that is where the
  * choice is made. `null` clears the canvas.
+ *
+ * Open notes go with it: the ids in `note` name topics of the map being left,
+ * and carrying them across would point them at whatever topics happen to share
+ * those ids in the next one.
  */
 export function openMindmap(mindmapId: string | null): void {
-  navigate({ mindmapId, libraryOpen: false });
+  navigate({ mindmapId, libraryOpen: false, noteNodeIds: [] });
 }
 
 export function setLibraryOpen(libraryOpen: boolean): void {
@@ -103,4 +116,41 @@ export function setHistoryOpen(historyOpen: boolean): void {
  */
 export function openConversation(conversationId: string | null): void {
   navigate({ conversationId, historyOpen: false });
+}
+
+/**
+ * Opens a topic's note in a window of its own, in front of whatever is already
+ * up. Notes float over the canvas rather than taking a side of it, so nothing
+ * closes to make room — which is the point: notes are read against each other.
+ *
+ * A note that is already open is raised instead of opened twice, which makes
+ * this the only call a "show me this note" affordance needs, whether or not it
+ * happens to be buried under three others.
+ */
+export function openNote(nodeId: string): void {
+  const { noteNodeIds } = getRoute();
+  if (noteNodeIds.includes(nodeId)) {
+    raiseNote(nodeId);
+    return;
+  }
+  navigate({ noteNodeIds: [...noteNodeIds, nodeId] });
+}
+
+/**
+ * Brings a note window to the front. Replaces rather than pushes: this fires
+ * on every press into a window, and Back should undo opening a note, not
+ * looking at one.
+ */
+export function raiseNote(nodeId: string): void {
+  const { noteNodeIds } = getRoute();
+  if (noteNodeIds.at(-1) === nodeId) return;
+  navigate(
+    { noteNodeIds: [...noteNodeIds.filter((id) => id !== nodeId), nodeId] },
+    { replace: true },
+  );
+}
+
+export function closeNote(nodeId: string): void {
+  const { noteNodeIds } = getRoute();
+  navigate({ noteNodeIds: noteNodeIds.filter((id) => id !== nodeId) });
 }

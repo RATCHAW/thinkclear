@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   buildTree,
   descendantsOf,
+  MAX_NOTE_LENGTH,
   ROOT_NODE_ID,
   updateMindmapSchema,
   type MindmapEdge,
@@ -48,7 +49,7 @@ export class MindmapToolsService {
 
       read_mindmap: tool({
         description:
-          "Read one mindmap as an indented outline. Every line carries the topic's id in [brackets]; use those ids with the editing tools.",
+          "Read one mindmap as an indented outline. Every line carries the topic's id in [brackets]; use those ids with the editing tools. A trailing (note) marks a topic that has a note — read it with read_topic_note.",
         inputSchema: z.object({
           mindmapId: z.string().describe("The mindmap's id"),
         }),
@@ -191,6 +192,68 @@ export class MindmapToolsService {
             });
             return {
               summary: `Renamed topic to "${title}"`,
+              ...this.describe(updated),
+            };
+          }),
+      }),
+
+      read_topic_note: tool({
+        description:
+          "Read one topic's note. Topics that have a note are marked (note) in a read_mindmap outline; this returns its markdown.",
+        inputSchema: z.object({
+          mindmapId: z.string(),
+          nodeId: z.string(),
+        }),
+        execute: ({ mindmapId, nodeId }) =>
+          this.run(async () => {
+            const doc = await this.mindmaps.findOne(ownerId, mindmapId);
+            const node = doc.nodes.find((node) => node.id === nodeId);
+            if (!node) {
+              return { error: `No topic with id "${nodeId}" in this mindmap.` };
+            }
+            return {
+              mindmapId,
+              nodeId,
+              title: node.title,
+              note: node.note ?? "",
+            };
+          }),
+      }),
+
+      set_topic_note: tool({
+        description:
+          "Write a topic's note, replacing whatever it held. A note is markdown prose hanging off the topic — the paragraph, checklist, or snippet a title is too short to carry. Pass an empty string to clear it. Replacing is the whole operation: to extend an existing note, call read_topic_note first and send back the combined markdown.",
+        inputSchema: z.object({
+          mindmapId: z.string(),
+          nodeId: z.string(),
+          note: z
+            .string()
+            .max(MAX_NOTE_LENGTH)
+            .describe("Markdown for the note, or an empty string to clear it"),
+        }),
+        execute: ({ mindmapId, nodeId, note }) =>
+          this.run(async () => {
+            const doc = await this.mindmaps.findOne(ownerId, mindmapId);
+            const target = doc.nodes.find((node) => node.id === nodeId);
+            if (!target) {
+              return { error: `No topic with id "${nodeId}" in this mindmap.` };
+            }
+            const text = note.trim();
+            const nodes = plainNodes(doc).map((node) => {
+              if (node.id !== nodeId) return node;
+              // Cleared means gone, not empty — same rule the canvas follows,
+              // so "has a note" stays a plain truthy check everywhere.
+              const { note: _cleared, ...rest } = node;
+              return text ? { ...rest, note: text } : rest;
+            });
+            const updated = await this.save(ownerId, mindmapId, {
+              nodes,
+              edges: plainEdges(doc),
+            });
+            return {
+              summary: text
+                ? `Wrote a note on "${target.title}"`
+                : `Cleared the note on "${target.title}"`,
               ...this.describe(updated),
             };
           }),
@@ -367,7 +430,12 @@ export class MindmapToolsService {
     const walk = (id: string, depth: number) => {
       const node = byId.get(id);
       if (!node) return;
-      lines.push(`${"  ".repeat(depth)}- ${node.title} [${node.id}]`);
+      // Notes are marked rather than inlined: a map where every topic carries
+      // a paragraph would push the actual tree out of the model's attention,
+      // and read_topic_note is one call away for the ones that matter.
+      lines.push(
+        `${"  ".repeat(depth)}- ${node.title} [${node.id}]${node.note ? " (note)" : ""}`,
+      );
       for (const kid of tree.children.get(id) ?? []) walk(kid, depth + 1);
     };
     for (const root of tree.roots) walk(root, 0);
@@ -442,7 +510,16 @@ function topicSchema(depth: number): z.ZodType<NewTopic> {
 const byX = (node: { x: number }) => node.x;
 
 function plainNodes(doc: MindmapDocument): MindmapNode[] {
-  return doc.nodes.map(({ id, title, x, y }) => ({ id, title, x, y }));
+  return doc.nodes.map(({ id, title, x, y, note }) => ({
+    id,
+    title,
+    x,
+    y,
+    // Carried through rather than dropped: every tool here reads the document
+    // and writes the whole node array back, so a field missing from this map
+    // is a field the next rename erases.
+    ...(note ? { note } : {}),
+  }));
 }
 
 function plainEdges(doc: MindmapDocument): MindmapEdge[] {

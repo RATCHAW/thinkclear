@@ -47,6 +47,7 @@ export const MUTATING_CHAT_TOOLS = [
   "rename_topic",
   "move_topic",
   "delete_topics",
+  "set_topic_note",
 ] as const;
 
 export type MutatingChatTool = (typeof MUTATING_CHAT_TOOLS)[number];

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createMindmapSchema,
+  MAX_NOTE_LENGTH,
   mindmapNodeSchema,
   signInSchema,
   signUpSchema,
@@ -74,6 +75,30 @@ describe("mindmap schemas", () => {
         title: "Topic",
         x: Number.POSITIVE_INFINITY,
         y: 0,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("carries an optional markdown note on a node, up to the cap", () => {
+    const node = { id: "node-1", title: "Topic", x: 0, y: 0 };
+
+    // Absent is the canonical "no note", so it survives a parse untouched
+    // rather than coming back as an empty string.
+    expect(mindmapNodeSchema.parse(node)).toEqual(node);
+    expect(
+      mindmapNodeSchema.parse({ ...node, note: "# Ship it\n\n- API first" }),
+    ).toEqual({ ...node, note: "# Ship it\n\n- API first" });
+
+    expect(
+      mindmapNodeSchema.safeParse({
+        ...node,
+        note: "x".repeat(MAX_NOTE_LENGTH),
+      }).success,
+    ).toBe(true);
+    expect(
+      mindmapNodeSchema.safeParse({
+        ...node,
+        note: "x".repeat(MAX_NOTE_LENGTH + 1),
       }).success,
     ).toBe(false);
   });
