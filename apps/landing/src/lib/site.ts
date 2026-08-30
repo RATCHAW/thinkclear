@@ -21,14 +21,65 @@ export const SIGN_UP_URL = APP_URL;
 /** The MCP setup guide inside the app, deep-linked to its section. */
 export const MCP_GUIDE_URL = `${APP_URL}/?account=mcp`;
 
+/**
+ * The two OAuth discovery documents an MCP client reads, written out because
+ * this page has to *name* them: an agent that never reaches the endpoint never
+ * sees the `WWW-Authenticate` challenge that would have told it where they are.
+ *
+ * Both paths carry the resource's and the issuer's own path appended, which is
+ * what RFC 9728 and RFC 8414 prescribe when either has a path component. That
+ * is why there is no document at the bare `/.well-known/oauth-authorization-server`:
+ * this server's issuer is `{app}/api/auth`, not the origin root, and metadata
+ * served at the bare path would carry an `issuer` that does not match where it
+ * was fetched from — which a conforming client is required to reject.
+ */
+export const MCP_RESOURCE_METADATA_URL = `${APP_URL}/.well-known/oauth-protected-resource/api/mcp`;
+export const MCP_AUTHORIZATION_SERVER_METADATA_URL = `${APP_URL}/.well-known/oauth-authorization-server/api/auth`;
+
 export const GITHUB_URL = "https://github.com/RATCHAW/thinkclear";
 export const GITHUB_README_URL = `${GITHUB_URL}#readme`;
 export const GITHUB_DEPLOYMENT_URL = `${GITHUB_URL}/blob/main/DEPLOYMENT.md`;
 export const GITHUB_DESIGN_URL = `${GITHUB_URL}/blob/main/DESIGN.md`;
 export const GITHUB_LICENSE_URL = `${GITHUB_URL}/blob/main/LICENSE`;
+export const GITHUB_ISSUES_URL = `${GITHUB_URL}/issues`;
+export const GITHUB_DISCUSSIONS_URL = `${GITHUB_URL}/discussions`;
 
 export const SITE_NAME = "ThinkClear";
 export const SITE_URL = "https://thinkclear.xyz";
+
+/** The machine-readable files at this origin, named in one place. */
+export const LLMS_TXT_URL = `${SITE_URL}/llms.txt`;
+export const SITEMAP_URL = `${SITE_URL}/sitemap.xml`;
+export const MCP_MANIFEST_URL = `${SITE_URL}/.well-known/mcp.json`;
+
+/**
+ * The mailbox on the contact page and in the `Organization` markup.
+ *
+ * It is on this project's own domain rather than a personal address, which is
+ * the difference between a contact route that can be handed to somebody else
+ * later and one that cannot. It has to be *routed* — a forwarding rule at the
+ * registrar, or an inbox — before this page goes out claiming it works.
+ */
+export const CONTACT_EMAIL = "hello@thinkclear.xyz";
+
+/**
+ * The publisher's postal address, for `Organization.address`.
+ *
+ * `null` on purpose, and not an oversight: ThinkClear is an open-source project
+ * with no registered company behind it, so there is no address to publish, and
+ * schema.org markup that invents one is a machine-readable lie in the exact
+ * place a machine goes to check the publisher is real. Fill this in the day
+ * there is an entity to name — the markup picks it up on its own — and until
+ * then the honest answer is that the field is absent.
+ */
+export const ORGANIZATION_ADDRESS: {
+  streetAddress?: string;
+  addressLocality?: string;
+  addressRegion?: string;
+  postalCode?: string;
+  /** ISO 3166-1 alpha-2. */
+  addressCountry: string;
+} | null = null;
 
 /** The line on the page. Written to be read by a person, in the footer. */
 export const SITE_TAGLINE =

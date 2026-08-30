@@ -1,7 +1,11 @@
+import { PRODUCT_FEATURES } from "@/lib/content";
 import {
   APP_URL,
+  CONTACT_EMAIL,
+  GITHUB_ISSUES_URL,
   GITHUB_LICENSE_URL,
   GITHUB_URL,
+  ORGANIZATION_ADDRESS,
   SITE_DESCRIPTION,
   SITE_NAME,
   SITE_URL,
@@ -27,12 +31,43 @@ export function JsonLd({ data }: { data: object }) {
 }
 
 /**
+ * How to reach the people behind this, in the form an engine checks before it
+ * recommends anything.
+ *
+ * Two entries because there are genuinely two routes and they are not
+ * interchangeable: the issue tracker is where support actually happens, in
+ * public, and the mailbox is for the things that cannot be public. Listing only
+ * the email would describe a support process nobody here uses.
+ */
+const CONTACT_POINTS = [
+  {
+    "@type": "ContactPoint",
+    contactType: "technical support",
+    url: GITHUB_ISSUES_URL,
+    email: CONTACT_EMAIL,
+    availableLanguage: "English",
+  },
+  {
+    "@type": "ContactPoint",
+    contactType: "customer support",
+    email: CONTACT_EMAIL,
+    url: `${SITE_URL}/contact`,
+    availableLanguage: "English",
+  },
+];
+
+/**
  * Who publishes this, what the thing is, and what it costs — the three
  * questions the page answers in prose, said again in the form a machine reads.
  *
  * `@id` and cross-references rather than three unrelated blocks, so an engine
  * that finds the software understands the organization behind it is the same
  * one that owns the site.
+ *
+ * `address` appears only when there is one. Structured data is checked precisely
+ * because it is the claim a machine trusts without reading the page, so an
+ * invented `PostalAddress` would be worse than the missing field it papers over
+ * — see `ORGANIZATION_ADDRESS`.
  */
 const SITE_GRAPH = {
   "@context": "https://schema.org",
@@ -43,6 +78,12 @@ const SITE_GRAPH = {
       name: SITE_NAME,
       url: SITE_URL,
       logo: `${SITE_URL}/icon.svg`,
+      description: SITE_DESCRIPTION,
+      email: CONTACT_EMAIL,
+      contactPoint: CONTACT_POINTS,
+      ...(ORGANIZATION_ADDRESS
+        ? { address: { "@type": "PostalAddress", ...ORGANIZATION_ADDRESS } }
+        : {}),
       sameAs: [GITHUB_URL],
     },
     {
@@ -72,13 +113,7 @@ const SITE_GRAPH = {
         priceCurrency: "USD",
         availability: "https://schema.org/InStock",
       },
-      featureList: [
-        "Mindmap canvas with drag-and-drop topics",
-        "AI assistant that creates, renames, moves and deletes topics",
-        "Markdown notes on every topic",
-        "MCP server so external agents can edit the same mindmaps",
-        "Self-hostable under AGPL-3.0",
-      ],
+      featureList: [...PRODUCT_FEATURES],
     },
   ],
 };

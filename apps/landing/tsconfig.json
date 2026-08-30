@@ -24,5 +24,12 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  // `test` is excluded here and picked up by `tsconfig.test.json` instead, the
+  // same split `apps/web` uses. It is not only about keeping specs out of
+  // `next build`: this config has no path to `@thinkclear/shared`, so app code
+  // that imported a workspace package would fail to compile. The rule that this
+  // app depends on nothing else in the repository is enforced by that absence,
+  // and the specs — which do reach for shared, to check the facts this site
+  // restates have not drifted — are the one place it is opened up.
+  "exclude": ["node_modules", "test"]
 }

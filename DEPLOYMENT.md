@@ -117,6 +117,15 @@ press. The authorized redirect URI in the Google console is
 `$APP_URL/api/auth/callback/google` — the *app's* origin again, since that is
 where `/api` is proxied from.
 
+**Both are set on the hosted instance**, and that is now load-bearing outside
+the API: the landing page's FAQ answers "can I sign in with Google" with a
+plain yes rather than a hedge, so unsetting either half here turns a marketing
+claim into a lie about a button that is no longer drawn. Check it without a
+session with
+`curl -s -X POST $API/api/auth/sign-in/social -H 'content-type: application/json' -d '{"provider":"google","callbackURL":"/"}'`
+— `PROVIDER_NOT_FOUND` means the running container does not have the
+credentials, whatever the dashboard says.
+
 `APP_URL` is the mistake worth naming twice: point it at the API's host or at
 the landing's and everything works until someone authorizes an MCP client, who
 then lands on a 404 where the consent screen should be.

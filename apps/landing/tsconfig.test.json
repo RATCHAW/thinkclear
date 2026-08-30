@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "paths": {
+      "@/*": ["./src/*"],
+      // Only the specs can see this, and only so they can check the copies this
+      // site publishes — the MCP tool names and their scopes — against the
+      // definitions the API enforces. Pointed at source rather than `dist` so a
+      // stale workspace build cannot make a drifted copy look correct, which is
+      // the same reason the vitest alias points there.
+      "@thinkclear/shared": ["../../packages/shared/src/index.ts"]
+    }
+  },
+  "include": ["src", "test"],
+  "exclude": ["node_modules"]
+}
