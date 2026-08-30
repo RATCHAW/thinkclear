@@ -29,5 +29,39 @@ export const GITHUB_LICENSE_URL = `${GITHUB_URL}/blob/main/LICENSE`;
 
 export const SITE_NAME = "ThinkClear";
 export const SITE_URL = "https://thinkclear.xyz";
+
+/** The line on the page. Written to be read by a person, in the footer. */
 export const SITE_TAGLINE =
   "A mindmap canvas with an assistant that can build it — and an MCP server so your own agent can too.";
+
+/**
+ * The line in the `<head>`, which is a different job and so a different
+ * sentence. A search result has ~155 characters of room and no surrounding
+ * page to lean on, so this one spends them naming the things somebody could
+ * plausibly have typed to get here — mindmap, open source, MCP — where the
+ * tagline can assume you are already looking at the product.
+ */
+export const SITE_DESCRIPTION =
+  "Open-source mindmap canvas with an assistant that builds it with you, plus an MCP server so Claude Code or any agent you use can edit the same maps.";
+
+/**
+ * The title tag, and deliberately not the headline. "Think out loud" is what
+ * the page says to somebody who is already on it; this is what has to win a
+ * click from a result list against nine other blue links, none of which the
+ * reader has heard of either.
+ */
+export const SITE_TITLE = `${SITE_NAME} — the AI mindmap your agent can edit too`;
+
+/**
+ * `rel="noreferrer"` is deliberate on anything leaving for somebody else's
+ * origin: a third party has no business being told which page sent a visitor,
+ * on top of the `Referrer-Policy` header that already trims the path off.
+ *
+ * The app is not a third party. It is the other half of this product, and
+ * withholding the referrer there buys no privacy at all — it only means the
+ * app reads every arrival from this page as direct traffic, which makes the
+ * one number this page exists to move impossible to measure.
+ */
+export function isFirstParty(href: string): boolean {
+  return href === APP_URL || href.startsWith(`${APP_URL}/`);
+}

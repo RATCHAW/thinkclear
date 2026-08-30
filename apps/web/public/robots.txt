@@ -1,0 +1,20 @@
+# app.thinkclear.xyz is the application, not a site. Every route is behind
+# sign-in and the shell renders nothing until a session loads, so there is no
+# URL here that belongs in a search result — and because the SPA rewrite
+# answers every path with that shell, an uninstructed crawler finds an endless
+# supply of them, all 200 and all identical.
+#
+# Crawling is allowed anyway, and that is the whole point. `Disallow: /` stops
+# Googlebot fetching the page at all, and a page it never fetches is a page
+# whose `X-Robots-Tag: noindex` it never reads: the URL stays eligible for a
+# link-only listing indefinitely. Letting the crawler in is what lets the
+# header actually remove it. That header is set in the repository root
+# `vercel.json` and mirrored in `apps/web/nginx.conf`.
+#
+# This file is served rather than rewritten because both front ends check the
+# filesystem before the SPA fallback — Vercel's routing order puts static
+# output ahead of `rewrites`, and nginx's `try_files $uri` looks on disk first.
+
+User-agent: *
+Allow: /
+Disallow: /api/

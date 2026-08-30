@@ -249,12 +249,26 @@
    interrupted mid-flight retargets instead of restarting.
 --------------------------------------------------------------------------- */
 @layer components {
-  .reveal {
-    opacity: 0;
-    transform: translateY(16px);
-    transition:
-      opacity 600ms var(--ease-out-strong),
-      transform 600ms var(--ease-out-strong);
+  /* The hidden half of the reveal is gated on scripting, because it is only
+     ever undone by script: `data-visible` is set by the IntersectionObserver
+     in `reveal.tsx`, so a reader with no JavaScript would otherwise be left
+     with a hero and roughly a thousand words at `opacity: 0` underneath it.
+     That is most of the page, and the readers it happens to — text browsers,
+     JS turned off, and the AI crawlers that fetch without rendering — are
+     ones with no way to recover.
+
+     A browser too old to know the `scripting` feature drops the block and
+     shows everything immediately, which is the right way to fail. Note this
+     changes nothing for Googlebot: it renders with scripting enabled, gets
+     the hidden state, and fires the observer like any other Chromium. */
+  @media (scripting: enabled) {
+    .reveal {
+      opacity: 0;
+      transform: translateY(16px);
+      transition:
+        opacity 600ms var(--ease-out-strong),
+        transform 600ms var(--ease-out-strong);
+    }
   }
 
   .reveal[data-visible] {
