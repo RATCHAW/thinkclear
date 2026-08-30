@@ -64,7 +64,12 @@ export interface WorkspaceRoute {
  * keeps the common link short and stops the parameter from encoding a choice
  * nobody made.
  */
-export const ACCOUNT_SECTIONS = ["profile", "sign-in", "mcp"] as const;
+export const ACCOUNT_SECTIONS = [
+  "profile",
+  "sign-in",
+  "preferences",
+  "mcp",
+] as const;
 
 export type AccountSection = (typeof ACCOUNT_SECTIONS)[number];
 

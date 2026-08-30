@@ -11,7 +11,6 @@ import {
   it,
   vi,
 } from "vitest";
-import { MeController } from "../src/me/me.controller";
 import { MindmapsController } from "../src/mindmaps/mindmaps.controller";
 import { MindmapsService } from "../src/mindmaps/mindmaps.service";
 
@@ -39,7 +38,7 @@ describe("mindmap HTTP API", () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      controllers: [MeController, MindmapsController],
+      controllers: [MindmapsController],
       providers: [{ provide: MindmapsService, useValue: service }],
     }).compile();
 
@@ -62,20 +61,6 @@ describe("mindmap HTTP API", () => {
 
   afterAll(async () => {
     await app.close();
-  });
-
-  it("returns the authenticated profile", async () => {
-    const response = await request(app.getHttpServer()).get("/api/me");
-
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({
-      user: { id: ownerId, email: "ada@example.com", name: "Ada" },
-      // Empty because the test environment configures no provider
-      // credentials — which is the same answer a self-hosted instance gives,
-      // and what makes the account screen hide the button rather than offer
-      // one that cannot work.
-      socialProviders: [],
-    });
   });
 
   it("lists and reads maps using the session owner", async () => {

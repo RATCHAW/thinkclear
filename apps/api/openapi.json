@@ -32,27 +32,6 @@
         ]
       }
     },
-    "/api/me": {
-      "get": {
-        "operationId": "MeController_me",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MeResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "me"
-        ]
-      }
-    },
     "/api/mindmaps": {
       "get": {
         "operationId": "MindmapsController_findMine",
@@ -438,6 +417,61 @@
           "mcp"
         ]
       }
+    },
+    "/api/me": {
+      "get": {
+        "operationId": "MeController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/me/preferences": {
+      "patch": {
+        "operationId": "MeController_updatePreferences",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePreferencesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Body failed validation"
+          }
+        },
+        "tags": [
+          "me"
+        ]
+      }
     }
   },
   "info": {
@@ -479,49 +513,6 @@
           "status",
           "database",
           "uptime"
-        ]
-      },
-      "MeUserDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "email",
-          "name"
-        ]
-      },
-      "MeResponseDto": {
-        "type": "object",
-        "properties": {
-          "user": {
-            "$ref": "#/components/schemas/MeUserDto"
-          },
-          "socialProviders": {
-            "type": "array",
-            "example": [
-              "google"
-            ],
-            "items": {
-              "type": "string",
-              "enum": [
-                "google"
-              ]
-            }
-          }
-        },
-        "required": [
-          "user",
-          "socialProviders"
         ]
       },
       "MindmapNodeDto": {
@@ -783,6 +774,83 @@
           "conversationId",
           "messages"
         ]
+      },
+      "MeUserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name"
+        ]
+      },
+      "PreferencesDto": {
+        "type": "object",
+        "properties": {
+          "layoutDirection": {
+            "type": "string",
+            "enum": [
+              "down",
+              "right"
+            ],
+            "example": "down",
+            "description": "Which way a mindmap grows from its root: \"down\" the screen or \"right\" across it. Every preference is answered at its default, so a person who has never changed one still gets a complete object."
+          }
+        },
+        "required": [
+          "layoutDirection"
+        ]
+      },
+      "MeResponseDto": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/MeUserDto"
+          },
+          "socialProviders": {
+            "type": "array",
+            "example": [
+              "google"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "google"
+              ]
+            }
+          },
+          "preferences": {
+            "$ref": "#/components/schemas/PreferencesDto"
+          }
+        },
+        "required": [
+          "user",
+          "socialProviders",
+          "preferences"
+        ]
+      },
+      "UpdatePreferencesDto": {
+        "type": "object",
+        "properties": {
+          "layoutDirection": {
+            "type": "string",
+            "enum": [
+              "down",
+              "right"
+            ],
+            "example": "right"
+          }
+        }
       }
     }
   }

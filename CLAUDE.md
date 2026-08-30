@@ -318,8 +318,8 @@ out of the model's attention.
 ### The account is a place, not a menu
 
 `components/account-dialog.tsx` is where everything about the *person* lives —
-profile, sign-in methods, and connected agents — as opposed to the library and
-the assistant, which are about their mindmaps. It is a **modal**, not a fourth
+profile, sign-in methods, preferences, and connected agents — as opposed to the
+library and the assistant, which are about their mindmaps. It is a **modal**, not a fourth
 floating surface: the library and assistant float over the canvas because they
 are used *while* working, and something opened twice a year should not be
 permanently reachable chrome. Its height is fixed for the same reason list rows
@@ -327,7 +327,7 @@ are pinned — a box that resizes as you move between sections turns navigating 
 into something you have to watch.
 
 Adding a section is adding an entry to `ACCOUNT_SECTIONS` in
-`lib/workspace-route.ts` and a case in `account-dialog.tsx`. The three that exist
+`lib/workspace-route.ts` and a case in `account-dialog.tsx`. The four that exist
 are the shape the next one should follow:
 
 - **Profile** — name, email, sign out. Sign out moved here out of the library
@@ -337,6 +337,10 @@ are the shape the next one should follow:
 - **Sign-in** — `authClient.listAccounts()` for what is linked, `GET /api/me`
   for what this deployment can offer. Both have to agree before a row is drawn;
   an unconfigured provider is absent rather than disabled.
+- **Preferences** — how the app behaves rather than who is using it. See below;
+  the one setting is the canvas' layout direction, chosen from two drawings of
+  the shape rather than from a select, and written on press with no Save button
+  because the canvas behind the dialog is the confirmation.
 - **MCP** — the endpoint, the per-client setup guide, and the connected agents.
   One section rather than three because it is one task read at different times.
   `lib/mcp-connection.ts` holds the guide **as data**, with the endpoint
@@ -358,6 +362,46 @@ how you connect Claude Code" is a link somebody can be sent, and `linkSocial`'s
 restores the screen with nothing saved and nothing to restore. Switching
 sections `replace`s rather than pushes — Back should leave settings, not walk
 back through tabs.
+
+### Preferences belong to the person, and the canvas reads them
+
+`packages/shared/src/preferences.ts` is the whole set — today, `layoutDirection`,
+which is `"down"` or `"right"` and decides which way every mindmap grows from its
+root. They live on the server (`GET /api/me`, `PATCH /api/me/preferences`, one
+`preferences` document per `ownerId` in `apps/api/src/me`) rather than in
+`localStorage`, and that is not a preference about preferences: the canvas
+*derives node positions* from the direction and saves them back into the mindmap,
+so two devices disagreeing would keep rewriting each other's graph.
+
+Three things follow from that:
+
+- **They ride on `/api/me`.** The canvas needs the direction to draw its first
+  frame, and a route of its own would be a second round trip landing after the
+  map had already painted the wrong way round. The document is upserted on first
+  change, so "no row" is the ordinary answer and means the defaults —
+  `MeService.findPreferences` never 404s, and every field falls back
+  individually, which is what lets a patch store only what changed.
+- **The layout is written on two named axes, not on x and y.** In
+  `mindmap-canvas.tsx`, *main* is the axis depth advances along and *cross* the
+  one siblings spread across; growing down means main = y, and growing right
+  swaps them. Everything that has to agree with the layout reads the same one
+  answer: which handles a connector leaves from and arrives at, where a new
+  branch is seeded, and how `buildTree` ranks siblings (by their cross
+  coordinate, so a branch dropped between two others stays between them).
+  `TopicNodeView` gets it from `LayoutDirectionContext`, because `nodeTypes` has
+  nowhere to pass a prop through.
+- **Changing it arms the autosave by itself.** Every other relayout is downstream
+  of an edit that already started the debounce; this one moves every topic with
+  nobody having edited anything, so `MindmapEditor` arms it on the change. Without
+  that the new coordinates are never persisted, and the next reload ranks siblings
+  by positions laid out for the direction the user just left.
+- **And it calls `updateNodeInternals` on every topic.** React Flow measures a
+  node's handles once and routes every connector from that cache, so moving a
+  handle in JSX moves the dot and nothing else: the tree turns and the lines keep
+  departing the side they used to, looping the long way round. It looks like a
+  layout bug, it is invisible to any assertion about where the topics are, and it
+  fixes itself on reload — which is exactly as long as the stale measurement
+  lives. The `edgeBox` assertion in `workspace.e2e.test.tsx` is there to catch it.
 
 ### Web state split
 

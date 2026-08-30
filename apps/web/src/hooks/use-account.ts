@@ -1,6 +1,14 @@
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { SocialProvider } from "@thinkclear/shared";
+import {
+  DEFAULT_LAYOUT_DIRECTION,
+  isLayoutDirection,
+  type Preferences,
+  type SocialProvider,
+  type UpdatePreferencesInput,
+} from "@thinkclear/shared";
 import { api } from "@/lib/api-client";
+import type { components } from "@/lib/api-types";
 import { authClient } from "@/lib/auth-client";
 import { leaveApp } from "@/lib/navigation";
 
@@ -27,10 +35,11 @@ export const accountKeys = {
 };
 
 /**
- * Who the session belongs to, and what this deployment can offer it. The
- * session already carries the user, so what is actually being fetched here is
- * `socialProviders` — but splitting that into a route of its own would be a
- * second request for one field of the same answer.
+ * Who the session belongs to, what this deployment can offer them, and how
+ * they have asked for the app to behave. The session already carries the user,
+ * so what is actually being fetched are the other two — but splitting either
+ * into a route of its own would be a second request for one field of the same
+ * answer.
  */
 export function useMe() {
   return useQuery({
@@ -42,6 +51,71 @@ export function useMe() {
     },
   });
 }
+
+/**
+ * The person's own settings, every one of them resolved: the server answers
+ * with a complete object and anything it could not answer for falls back here,
+ * so nothing downstream has to spell "or the default" a second time.
+ *
+ * It reads `me` rather than fetching, because the settings arrive on that same
+ * answer — the canvas needs the layout direction to draw its first frame, and
+ * a second round trip for one field of a response already in flight would put
+ * a flip between the map painting and the map being right.
+ */
+export function usePreferences(): Preferences {
+  const { data } = useMe();
+  const stored = data?.preferences.layoutDirection;
+
+  return useMemo(
+    () => ({
+      layoutDirection:
+        stored && isLayoutDirection(stored) ? stored : DEFAULT_LAYOUT_DIRECTION,
+    }),
+    [stored],
+  );
+}
+
+/**
+ * Optimistic, and not as a nicety: the layout direction is a change the user
+ * watches happen to the canvas behind the dialog, so a round trip's wait
+ * before the map moves would read as the press not having registered. On
+ * failure the previous answer goes back and the error is shown next to the
+ * control that caused it.
+ */
+export function useUpdatePreferences() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: UpdatePreferencesInput) => {
+      const { data, error } = await api.PATCH("/api/me/preferences", {
+        body: input,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: accountKeys.me });
+      const previous = queryClient.getQueryData<Me>(accountKeys.me);
+      queryClient.setQueryData<Me>(accountKeys.me, (me) =>
+        me ? { ...me, preferences: { ...me.preferences, ...input } } : me,
+      );
+      return { previous };
+    },
+    onError: (_error, _input, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(accountKeys.me, context.previous);
+      }
+    },
+    onSuccess: (preferences) => {
+      if (!preferences) return;
+      queryClient.setQueryData<Me>(accountKeys.me, (me) =>
+        me ? { ...me, preferences } : me,
+      );
+    },
+  });
+}
+
+type Me = components["schemas"]["MeResponseDto"];
 
 export interface SignInMethod {
   /** Better Auth's row id — what `unlinkAccount` takes. */

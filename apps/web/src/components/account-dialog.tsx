@@ -1,6 +1,14 @@
 import { useState } from "react";
-import { KeyRound, Loader2, LogOut, Plug, User } from "lucide-react";
+import {
+  KeyRound,
+  Loader2,
+  LogOut,
+  Plug,
+  SlidersHorizontal,
+  User,
+} from "lucide-react";
 import { AccountMcp } from "@/components/account-mcp";
+import { AccountPreferences } from "@/components/account-preferences";
 import { AccountSignIn } from "@/components/account-sign-in";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +29,8 @@ import { ACCOUNT_SECTIONS, type AccountSection } from "@/lib/workspace-route";
 
 /**
  * Everything about the person rather than about their mindmaps: who they are,
- * how they get in, and which agents they have let in.
+ * how they get in, how they have asked the app to behave, and which agents
+ * they have let in.
  *
  * It is a modal rather than a fourth panel over the canvas. The canvas is the
  * page and the library and assistant float over it because they are used
@@ -53,6 +62,12 @@ const SECTIONS: Record<
     title: "How you sign in",
     description:
       "Every way into this account. Adding one never replaces another.",
+  },
+  preferences: {
+    label: "Preferences",
+    icon: SlidersHorizontal,
+    title: "Preferences",
+    description: "How the app behaves, on every mindmap you open.",
   },
   mcp: {
     label: "MCP",
@@ -99,7 +114,8 @@ function AccountPanel({
       <DialogHeader className="shrink-0 border-b border-hairline py-4 pr-16 pl-5">
         <DialogTitle>Account</DialogTitle>
         <DialogDescription>
-          Your profile, how you sign in, and the agents you have connected.
+          Your profile, how you sign in, how the app behaves, and the agents you
+          have connected.
         </DialogDescription>
       </DialogHeader>
 
@@ -128,6 +144,7 @@ function AccountPanel({
           <div className="mt-5">
             {section === "profile" && <AccountProfile user={user} />}
             {section === "sign-in" && <AccountSignIn />}
+            {section === "preferences" && <AccountPreferences />}
             {section === "mcp" && <AccountMcp />}
           </div>
         </div>

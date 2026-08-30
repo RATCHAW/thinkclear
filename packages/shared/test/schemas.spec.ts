@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   createMindmapSchema,
+  DEFAULT_PREFERENCES,
+  LAYOUT_DIRECTIONS,
   MAX_NOTE_LENGTH,
   mindmapNodeSchema,
   signInSchema,
   signUpSchema,
   updateMindmapSchema,
+  updatePreferencesSchema,
 } from "../src";
 
 describe("authentication schemas", () => {
@@ -113,6 +116,39 @@ describe("mindmap schemas", () => {
     if (result.success) return;
     expect(result.error.issues[0]?.message).toBe(
       "At least one field is required",
+    );
+  });
+});
+
+describe("preference schemas", () => {
+  it("accepts every direction the canvas can lay out, and nothing else", () => {
+    for (const layoutDirection of LAYOUT_DIRECTIONS) {
+      expect(updatePreferencesSchema.parse({ layoutDirection })).toEqual({
+        layoutDirection,
+      });
+    }
+
+    expect(
+      updatePreferencesSchema.safeParse({ layoutDirection: "diagonal" })
+        .success,
+    ).toBe(false);
+  });
+
+  it("rejects an empty patch the way a mindmap update does", () => {
+    const result = updatePreferencesSchema.safeParse({});
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues[0]?.message).toBe(
+      "At least one field is required",
+    );
+  });
+
+  // Every default has to be a value the schema would have accepted, or a
+  // person who has never opened settings gets an answer they cannot send back.
+  it("defaults to a direction the schema accepts", () => {
+    expect(updatePreferencesSchema.safeParse(DEFAULT_PREFERENCES).success).toBe(
+      true,
     );
   });
 });
