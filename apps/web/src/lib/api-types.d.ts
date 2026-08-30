@@ -20,22 +20,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["MeController_me"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/mindmaps": {
         parameters: {
             query?: never;
@@ -132,6 +116,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MeController_me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["MeController_updatePreferences"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -149,20 +165,6 @@ export interface components {
              * @example 1837
              */
             uptime: number;
-        };
-        MeUserDto: {
-            id: string;
-            email: string;
-            name: string;
-        };
-        MeResponseDto: {
-            user: components["schemas"]["MeUserDto"];
-            /**
-             * @example [
-             *       "google"
-             *     ]
-             */
-            socialProviders: "google"[];
         };
         MindmapNodeDto: {
             /**
@@ -257,6 +259,36 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        MeUserDto: {
+            id: string;
+            email: string;
+            name: string;
+        };
+        PreferencesDto: {
+            /**
+             * @description Which way a mindmap grows from its root: "down" the screen or "right" across it. Every preference is answered at its default, so a person who has never changed one still gets a complete object.
+             * @example down
+             * @enum {string}
+             */
+            layoutDirection: "down" | "right";
+        };
+        MeResponseDto: {
+            user: components["schemas"]["MeUserDto"];
+            /**
+             * @example [
+             *       "google"
+             *     ]
+             */
+            socialProviders: "google"[];
+            preferences: components["schemas"]["PreferencesDto"];
+        };
+        UpdatePreferencesDto: {
+            /**
+             * @example right
+             * @enum {string}
+             */
+            layoutDirection?: "down" | "right";
+        };
     };
     responses: never;
     parameters: never;
@@ -290,25 +322,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponseDto"];
-                };
-            };
-        };
-    };
-    MeController_me: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MeResponseDto"];
                 };
             };
         };
@@ -664,6 +677,55 @@ export interface operations {
             };
             /** @description The token is valid but lacks a required scope */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MeController_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponseDto"];
+                };
+            };
+        };
+    };
+    MeController_updatePreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePreferencesDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesDto"];
+                };
+            };
+            /** @description Body failed validation */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

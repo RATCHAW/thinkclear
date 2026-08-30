@@ -144,6 +144,77 @@ describe("mindmap workspace journey", () => {
     expect(api.graphPatches[0]?.edges).toHaveLength(1);
   });
 
+  test("turns every map sideways when the preference says so", async () => {
+    const api = createFakeApi({ mindmaps: [branchedMindmap()] });
+    vi.stubGlobal("fetch", vi.fn(api.fetch));
+    visit("/mindmaps/mindmap-1");
+    const screen = await render(<WorkspacePage user={user} />, {
+      wrapper: testProviders(),
+    });
+
+    // As it comes: the branch hangs below the root.
+    await expect.poll(() => branchSits(screen)).toBe("below");
+
+    // The library trigger wears the open map's name.
+    await screen.getByRole("button", { name: "Roadmap" }).click();
+    await screen.getByRole("button", { name: user.email }).click();
+    await screen.getByRole("button", { name: "Preferences" }).click();
+    // The label is what a user presses; the radio inside it is only visible to
+    // a screen reader.
+    await screen.getByText("Left to right").click();
+
+    await expect
+      .poll(() => api.preferences())
+      .toEqual({ layoutDirection: "right" });
+
+    // The canvas rearranges behind the dialog, so leaving settings is not part
+    // of making the choice take effect.
+    await userEvent.keyboard("{Escape}");
+    await expect.poll(() => branchSits(screen)).toBe("beside");
+
+    // And the connector turns with it. A link still leaving the bottom of the
+    // root and arriving at the top of a topic now beside it takes the long way
+    // round — which is what React Flow draws until it is told the handles have
+    // moved, and is invisible to any assertion about where the topics are.
+    await expect
+      .poll(() => {
+        const box = edgeBox(screen);
+        return box ? box.height < 20 && box.width > 40 : null;
+      })
+      .toBe(true);
+
+    // And the positions the new layout landed on are saved, unprompted by any
+    // edit — otherwise a reload would rank siblings by coordinates laid out
+    // for the direction the user just left.
+    await expect
+      .poll(
+        () => {
+          const nodes = api.graphPatches.at(-1)?.nodes;
+          const root = nodes?.find((node) => node.id === "root");
+          const branch = nodes?.find((node) => node.id === "backend");
+          return root && branch ? branch.x > root.x : null;
+        },
+        { timeout: 5000 },
+      )
+      .toBe(true);
+
+    // Both ways: the measurement goes stale turning back as readily as it does
+    // turning out.
+    await screen.getByRole("button", { name: "Roadmap" }).click();
+    await screen.getByRole("button", { name: user.email }).click();
+    await screen.getByRole("button", { name: "Preferences" }).click();
+    await screen.getByText("Top to bottom").click();
+    await userEvent.keyboard("{Escape}");
+
+    await expect.poll(() => branchSits(screen)).toBe("below");
+    await expect
+      .poll(() => {
+        const box = edgeBox(screen);
+        return box ? box.width < 20 && box.height > 40 : null;
+      })
+      .toBe(true);
+  });
+
   test("writes a topic note as markdown and saves it with the graph", async () => {
     const api = createFakeApi({ mindmaps: [mindmapFixture()] });
     vi.stubGlobal("fetch", vi.fn(api.fetch));
@@ -429,6 +500,54 @@ function notedMindmap() {
   return mindmapFixture({
     nodes: [{ id: "root", title: "Roadmap", x: 0, y: 0, note: "# Ship it" }],
   });
+}
+
+/** A root with one branch, for the layout journeys. */
+function branchedMindmap() {
+  return mindmapFixture({
+    nodes: [
+      { id: "root", title: "Roadmap", x: 0, y: 0 },
+      { id: "backend", title: "Backend", x: 0, y: 104 },
+    ],
+    edges: [{ id: "e1", source: "root", target: "backend" }],
+  });
+}
+
+/**
+ * Where the branch sits relative to the root, read off the rendered canvas.
+ * Compared as a direction rather than as coordinates so the assertion survives
+ * whatever zoom `fitView` settled on.
+ */
+function branchSits(screen: { container: HTMLElement }) {
+  const root = topicCenter(screen, "Roadmap");
+  const branch = topicCenter(screen, "Backend");
+  if (!root || !branch) return null;
+  const dx = branch.x - root.x;
+  const dy = branch.y - root.y;
+  if (Math.abs(dy) > Math.abs(dx)) return dy > 0 ? "below" : "above";
+  return dx > 0 ? "beside" : "before";
+}
+
+/**
+ * The one connector's own bounding box, in flow units — `getBBox` ignores the
+ * viewport transform, so this is the shape of the line rather than where the
+ * canvas happens to be scrolled to.
+ */
+function edgeBox(screen: { container: HTMLElement }) {
+  return (
+    screen.container
+      .querySelector<SVGPathElement>(".react-flow__edge-path")
+      ?.getBBox() ?? null
+  );
+}
+
+function topicCenter(screen: { container: HTMLElement }, title: string) {
+  const node = [
+    ...screen.container.querySelectorAll<HTMLElement>(".react-flow__node"),
+  ].find((element) => element.textContent?.trim() === title);
+  if (!node) return null;
+  const { left, top, width, height } = node.getBoundingClientRect();
+  return { x: left + width / 2, y: top + height / 2 };
 }
 
 const user = { email: "ada@example.com", name: "Ada" };

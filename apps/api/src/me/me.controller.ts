@@ -1,47 +1,49 @@
-import { Controller, Get } from "@nestjs/common";
-import { ApiOkResponse, ApiProperty, ApiTags } from "@nestjs/swagger";
+import { Body, Controller, Get, Inject, Patch } from "@nestjs/common";
+import {
+  ApiBadRequestResponse,
+  ApiBody,
+  ApiOkResponse,
+  ApiTags,
+} from "@nestjs/swagger";
 import { Session, UserSession } from "@thallesp/nestjs-better-auth";
-import { SOCIAL_PROVIDERS as KNOWN_SOCIAL_PROVIDERS } from "@thinkclear/shared";
+import {
+  updatePreferencesSchema,
+  type UpdatePreferencesInput,
+} from "@thinkclear/shared";
 import { SOCIAL_PROVIDERS } from "../auth";
-
-export class MeUserDto {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty()
-  email: string;
-
-  @ApiProperty()
-  name: string;
-}
-
-export class MeResponseDto {
-  @ApiProperty({ type: MeUserDto })
-  user: MeUserDto;
-
-  /**
-   * Which social providers this deployment holds credentials for, and can
-   * therefore let the signed-in user connect.
-   *
-   * It rides on `me` rather than a config route of its own because it is the
-   * same question — what this account is and what can be done to it — and
-   * because it is only ever asked by the screen that already needs the user.
-   */
-  @ApiProperty({
-    type: [String],
-    enum: KNOWN_SOCIAL_PROVIDERS,
-    example: KNOWN_SOCIAL_PROVIDERS,
-  })
-  socialProviders: string[];
-}
+import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { MeResponseDto, PreferencesDto, UpdatePreferencesDto } from "./me.dto";
+import { MeService } from "./me.service";
 
 @ApiTags("me")
 @Controller("api/me")
 export class MeController {
+  constructor(@Inject(MeService) private readonly meService: MeService) {}
+
   @Get()
   @ApiOkResponse({ type: MeResponseDto })
-  me(@Session() session: UserSession): MeResponseDto {
+  async me(@Session() session: UserSession): Promise<MeResponseDto> {
     const { id, email, name } = session.user;
-    return { user: { id, email, name }, socialProviders: SOCIAL_PROVIDERS };
+    return {
+      user: { id, email, name },
+      socialProviders: SOCIAL_PROVIDERS,
+      preferences: await this.meService.findPreferences(id),
+    };
+  }
+
+  /**
+   * A PATCH rather than a PUT because the body names what changed: the client
+   * that flips one setting should not have to send back the ones it never read.
+   */
+  @Patch("preferences")
+  @ApiBody({ type: UpdatePreferencesDto })
+  @ApiOkResponse({ type: PreferencesDto })
+  @ApiBadRequestResponse({ description: "Body failed validation" })
+  updatePreferences(
+    @Session() session: UserSession,
+    @Body(new ZodValidationPipe(updatePreferencesSchema))
+    body: UpdatePreferencesInput,
+  ) {
+    return this.meService.updatePreferences(session.user.id, body);
   }
 }

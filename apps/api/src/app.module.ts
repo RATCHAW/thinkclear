@@ -7,7 +7,7 @@ import { auth } from "./auth";
 import { ConversationsModule } from "./conversations/conversations.module";
 import { HealthController } from "./health/health.controller";
 import { McpModule } from "./mcp/mcp.module";
-import { MeController } from "./me/me.controller";
+import { MeModule } from "./me/me.module";
 import { MindmapsModule } from "./mindmaps/mindmaps.module";
 
 @Module({
@@ -21,7 +21,8 @@ import { MindmapsModule } from "./mindmaps/mindmaps.module";
     ConversationsModule,
     AiModule,
     McpModule,
+    MeModule,
   ],
-  controllers: [HealthController, MeController],
+  controllers: [HealthController],
 })
 export class AppModule {}

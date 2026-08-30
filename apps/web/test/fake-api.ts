@@ -1,3 +1,4 @@
+import type { Preferences } from "@thinkclear/shared";
 import type { Conversation } from "@/hooks/use-conversations";
 import type { Mindmap } from "@/hooks/use-mindmaps";
 
@@ -19,6 +20,7 @@ export function createFakeApi({
   mindmaps: initialMindmaps = [],
   conversations: initialConversations = [],
   socialProviders = ["google"],
+  preferences: initialPreferences = { layoutDirection: "down" },
   reply = "Done.",
   tool,
 }: {
@@ -26,6 +28,8 @@ export function createFakeApi({
   conversations?: Conversation[];
   /** What `GET /api/me` says this deployment has credentials for. */
   socialProviders?: string[];
+  /** The settings this account starts the test with. */
+  preferences?: Preferences;
   reply?: string;
   /**
    * A server-side tool call to stream ahead of the reply, the way the real
@@ -36,6 +40,7 @@ export function createFakeApi({
 } = {}) {
   let mindmaps = structuredClone(initialMindmaps);
   let conversations = structuredClone(initialConversations);
+  let preferences = structuredClone(initialPreferences);
   let sequence = mindmaps.length + conversations.length;
   const graphPatches: MindmapPatch[] = [];
   const chatRequests: ChatBody[] = [];
@@ -54,7 +59,16 @@ export function createFakeApi({
       return json({
         user: { id: "user-1", email: "ada@example.com", name: "Ada" },
         socialProviders,
+        preferences,
       });
+    }
+
+    // The real route answers with the whole settled object, not the patch, so
+    // a client that sent one field still learns the rest.
+    if (pathname === "/api/me/preferences" && request.method === "PATCH") {
+      const body = (await request.json()) as Partial<Preferences>;
+      preferences = { ...preferences, ...body };
+      return json(preferences);
     }
 
     if (pathname === "/api/mindmaps" && request.method === "GET") {
@@ -208,6 +222,7 @@ export function createFakeApi({
     chatRequests,
     mindmaps: () => structuredClone(mindmaps),
     conversations: () => structuredClone(conversations),
+    preferences: () => structuredClone(preferences),
   };
 }
 

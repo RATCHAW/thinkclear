@@ -1,5 +1,7 @@
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -21,6 +23,7 @@ import {
   useEdgesState,
   useNodesState,
   useReactFlow,
+  useUpdateNodeInternals,
   type Connection,
   type Edge,
   type EdgeProps,
@@ -34,14 +37,17 @@ import { Loader2, NotebookPen, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
   buildTree,
   canConnect,
+  DEFAULT_LAYOUT_DIRECTION,
   descendantsOf,
   ROOT_NODE_ID,
+  type LayoutDirection,
 } from "@thinkclear/shared";
 import { prefetchNoteMarkdown } from "@/components/note-markdown-lazy";
 import { NotePreview } from "@/components/note-preview";
 import { NoteWindows } from "@/components/note-window";
 import { HoverCard, HoverCardTrigger } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
+import { usePreferences } from "@/hooks/use-account";
 import {
   useActiveMindmap,
   useSaveMindmapGraph,
@@ -98,8 +104,19 @@ export type TopicNode = Node<
   "topic"
 >;
 
+/**
+ * Which way the tree grows, for the parts of the canvas that are rendered by
+ * React Flow rather than called by it — a topic's handles and the position a
+ * new branch is seeded at have to agree with the layout, and `nodeTypes` has
+ * nowhere to pass a prop through.
+ */
+const LayoutDirectionContext = createContext<LayoutDirection>(
+  DEFAULT_LAYOUT_DIRECTION,
+);
+
 export function MindmapCanvas() {
   const activeMindmap = useActiveMindmap();
+  const { layoutDirection } = usePreferences();
   // Swapping in the next map is deferred by one dissolve: the outgoing canvas
   // fades out first, so a switch is something the user watches happen rather
   // than a frame in which the whole page is a different mindmap.
@@ -130,20 +147,22 @@ export function MindmapCanvas() {
   // locally, which is what keeps background refetches from clobbering an edit
   // in progress — and so the fade-in replays for the arriving map.
   return shown ? (
-    <ReactFlowProvider key={shown._id}>
-      <div
-        className={cn(
-          "h-full w-full",
-          leaving ? "animate-canvas-out" : "animate-canvas-in",
-        )}
-      >
-        <MindmapEditor mindmap={shown} />
-      </div>
-      {/* Inside the provider, so they read and write the same node data the
-          topics do; outside the dissolving wrapper, because a window has no
-          business fading and scaling along with the map behind it. */}
-      <NoteWindows />
-    </ReactFlowProvider>
+    <LayoutDirectionContext value={layoutDirection}>
+      <ReactFlowProvider key={shown._id}>
+        <div
+          className={cn(
+            "h-full w-full",
+            leaving ? "animate-canvas-out" : "animate-canvas-in",
+          )}
+        >
+          <MindmapEditor mindmap={shown} direction={layoutDirection} />
+        </div>
+        {/* Inside the provider, so they read and write the same node data the
+            topics do; outside the dissolving wrapper, because a window has no
+            business fading and scaling along with the map behind it. */}
+        <NoteWindows />
+      </ReactFlowProvider>
+    </LayoutDirectionContext>
   ) : (
     // The idle backdrop behind the "No mindmap open" overlay.
     <div key="empty" className="animate-canvas-in h-full w-full">
@@ -157,7 +176,13 @@ export function MindmapCanvas() {
 const nodeTypes = { topic: TopicNodeView };
 const edgeTypes = { topic: TopicEdgeView };
 
-function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
+function MindmapEditor({
+  mindmap,
+  direction,
+}: {
+  mindmap: Mindmap;
+  direction: LayoutDirection;
+}) {
   const { screenToFlowPosition, fitView } = useReactFlow();
   const reduceMotion = Boolean(useReducedMotion());
   // Warmed here rather than on first hover: a preview that has to fetch
@@ -292,14 +317,32 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   // -- Static tree layout --------------------------------------------------
+  // React Flow measures each topic's handles once and routes every connector
+  // from that cache, so moving a handle from the bottom of the pill to its
+  // right-hand side changes where the dot is drawn and nothing about where the
+  // lines go. Turning the tree without this leaves every link departing the
+  // side it used to, looping the long way round to reach a topic that is now
+  // beside its parent — right again only on the next reload, which is exactly
+  // as long as the stale measurement survives.
+  const updateNodeInternals = useUpdateNodeInternals();
+  useEffect(() => {
+    updateNodeInternals(graph.current.nodes.map((node) => node.id));
+  }, [direction, updateNodeInternals]);
+
   // Nodes are never dragged: whenever the graph's structure (or a node's
-  // rendered width) changes, every position is recomputed as a left-to-right
-  // tree. Waits until every node is measured so the stored positions paint
-  // first and the settled layout doesn't need a second pass.
+  // rendered size) changes, every position is recomputed as a tree growing the
+  // way `direction` says. Waits until every node is measured so the stored
+  // positions paint first and the settled layout doesn't need a second pass.
+  //
+  // Both dimensions are in the key because either can be the one that matters:
+  // growing down, a wider title takes more room beside its siblings; growing
+  // right, it pushes the whole level after it further across.
   const structureKey = [
+    direction,
     nodes
       .map(
-        (node) => `${node.id}@${Math.round((node.measured?.width ?? 0) / 8)}`,
+        (node) =>
+          `${node.id}@${Math.round((node.measured?.width ?? 0) / 8)}x${Math.round((node.measured?.height ?? 0) / 8)}`,
       )
       .join(),
     edges.map((edge) => `${edge.source}>${edge.target}`).join(),
@@ -313,10 +356,10 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
   useEffect(() => {
     const current = graph.current;
     if (current.nodes.some((node) => !node.measured?.width)) return;
-    const laid = layoutGraph(current.nodes, current.edges);
+    const laid = layoutGraph(current.nodes, current.edges, direction);
     if (laid.edges !== current.edges) setEdges(laid.edges);
 
-    const target = release(laid.nodes);
+    const target = release(laid.nodes, direction);
     const to = new Map(target.map((node) => [node.id, node]));
     const from = new Map(current.nodes.map((node) => [node.id, node.position]));
     // Positions are interpolated in state rather than transitioned in CSS
@@ -387,7 +430,25 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
         setSettledPass((pass) => pass + 1);
       },
     });
-  }, [structureKey, reduceMotion, setNodes, setEdges]);
+    // `direction` is already inside `structureKey`, so naming it here costs no
+    // extra pass — the two can only ever change together.
+  }, [structureKey, direction, reduceMotion, setNodes, setEdges]);
+
+  // Changing the direction moves every topic without anyone having edited
+  // anything, so nothing above has armed the debounce — and the positions the
+  // glide lands on are what a reload re-derives sibling order from. Arming it
+  // here is what keeps the map that comes back the map that was left.
+  const laidDirection = useRef(direction);
+  useEffect(() => {
+    if (laidDirection.current === direction) return;
+    laidDirection.current = direction;
+    // Spread rather than replaced: a rename made a moment ago may still be
+    // waiting in here, and the map's own title is not something to lose to a
+    // change of direction.
+    pending.current = { ...pending.current };
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(flush, AUTOSAVE_MS);
+  }, [direction, flush]);
 
   // Reframing waits for that settled beat instead of firing with the edit:
   // fitView measures the positions React Flow has already been handed, which
@@ -483,7 +544,9 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
       edges: Edge[];
     }) => {
       const { nodes, edges } = graph.current;
-      const tree = buildTree(nodes, edges, byX);
+      // Sibling order has no bearing on who is below whom, but the tree is
+      // built the one way everywhere so there is only ever one to reason about.
+      const tree = buildTree(nodes, edges, siblingOrder(direction));
       const doomed = new Set<string>();
       for (const node of requested) {
         if (node.id === ROOT_NODE_ID) continue;
@@ -501,7 +564,7 @@ function MindmapEditor({ mindmap }: { mindmap: Mindmap }) {
         ),
       };
     },
-    [],
+    [direction],
   );
 
   return (
@@ -577,6 +640,8 @@ function TopicNodeView({ id, data, selected }: NodeProps<TopicNode>) {
   // own it would stay open behind the window it just opened, showing the same
   // note twice.
   const [previewOpen, setPreviewOpen] = useState(false);
+  const direction = useContext(LayoutDirectionContext);
+  const across = direction === "right";
   const isRoot = id === ROOT_NODE_ID;
 
   // The toolbar's rename button (and a fresh mint) request editing by
@@ -625,11 +690,25 @@ function TopicNodeView({ id, data, selected }: NodeProps<TopicNode>) {
     addNodes({
       id: childId,
       type: "topic" as const,
-      // Seeded just below the parent; the tree layout slots it in properly.
-      position: {
-        x: parent.position.x,
-        y: parent.position.y + NODE_HEIGHT + LEVEL_GAP,
-      },
+      // Seeded one level along from the parent and level with it, so it sorts
+      // into the middle of any siblings; the tree layout then places it
+      // properly. Which way "along" is is the whole difference between the two
+      // directions here.
+      position: across
+        ? {
+            x:
+              parent.position.x +
+              (parent.measured?.width ?? NODE_WIDTH) +
+              LEVEL_GAP,
+            y: parent.position.y,
+          }
+        : {
+            x: parent.position.x,
+            y:
+              parent.position.y +
+              (parent.measured?.height ?? NODE_HEIGHT) +
+              LEVEL_GAP,
+          },
       data: { title: "New topic", startEditing: true },
     });
     addEdges(makeEdge(id, childId));
@@ -637,7 +716,11 @@ function TopicNodeView({ id, data, selected }: NodeProps<TopicNode>) {
 
   function remove() {
     if (!confirmCount) {
-      const tree = buildTree(getNodes() as TopicNode[], getEdges(), byX);
+      const tree = buildTree(
+        getNodes() as TopicNode[],
+        getEdges(),
+        siblingOrder(direction),
+      );
       const branchSize = descendantsOf(tree, id).length + 1;
       if (branchSize > 1) {
         setConfirmCount(branchSize);
@@ -708,15 +791,17 @@ function TopicNodeView({ id, data, selected }: NodeProps<TopicNode>) {
             </span>
           )}
           {/* Loose connection mode makes both dots interchangeable grab points,
-          so branches can grow from either end of a topic. */}
+          so branches can grow from either end of a topic. They sit on the two
+          ends of the growth axis, which is also what tells React Flow which way
+          a connector should leave and arrive. */}
           <Handle
             type="target"
-            position={Position.Top}
+            position={across ? Position.Left : Position.Top}
             className="!size-2.5 !border-none !bg-[#2b78e4]"
           />
           <Handle
             type="source"
-            position={Position.Bottom}
+            position={across ? Position.Right : Position.Bottom}
             className="!size-2.5 !border-none !bg-[#2b78e4]"
           />
 
@@ -884,14 +969,20 @@ function rootTitle(nodes: TopicNode[]) {
  * out: they fade in where they actually belong, one after the next down the
  * branch, so a five-topic answer reads as five topics rather than one blink.
  */
-function release(nodes: TopicNode[]): TopicNode[] {
+function release(nodes: TopicNode[], direction: LayoutDirection): TopicNode[] {
   const entering = nodes.filter((node) => node.data.enter === "pending");
   if (!entering.length) return nodes;
+  // Down the branch, then across it — which is depth first either way, so the
+  // order the topics appear in is the order they were reasoned into existence.
+  const along =
+    direction === "right"
+      ? (a: TopicNode, b: TopicNode) =>
+          a.position.x - b.position.x || a.position.y - b.position.y
+      : (a: TopicNode, b: TopicNode) =>
+          a.position.y - b.position.y || a.position.x - b.position.x;
   const delays = new Map(
     entering
-      .sort(
-        (a, b) => a.position.y - b.position.y || a.position.x - b.position.x,
-      )
+      .sort(along)
       .map((node, index) => [
         node.id,
         Math.min(index, TOPIC_STAGGER_STEPS) * TOPIC_STAGGER_MS,
@@ -906,67 +997,112 @@ function release(nodes: TopicNode[]): TopicNode[] {
 }
 
 // -- Tree layout -----------------------------------------------------------
-// The canvas is a static top-to-bottom tree: every position is derived from
-// the graph, never from dragging. Each depth is a row, siblings sit side by
-// side ordered by their previous x, and a parent centers over its children —
+// The canvas is a static tree: every position is derived from the graph, never
+// from dragging. Each depth is a row (or a column), siblings sit side by side
+// ordered by where they already are, and a parent centers over its children —
 // so the ordering, including where a freshly dropped branch lands, is stable
 // across relayouts and reloads.
+//
+// Which way the tree grows is the person's to choose, so the whole thing is
+// written on two named axes rather than on x and y: **main** is the one depth
+// advances along and **cross** the one siblings spread across. Growing down
+// means main = y, cross = x; growing right swaps them, and nothing else in the
+// algorithm changes. Everything that has to agree with the layout — the
+// handles a connector leaves from, where a new branch is seeded, how
+// `buildTree` ranks siblings — reads the same one answer.
 
-/** How `buildTree` ranks siblings: left to right, by where they already are. */
-const byX = (node: { position: { x: number } }) => node.position.x;
+/**
+ * How `buildTree` ranks siblings: by where they already sit on the cross axis,
+ * so a branch dropped between two others stays between them.
+ */
+function siblingOrder(direction: LayoutDirection) {
+  return direction === "right"
+    ? (node: { position: { y: number } }) => node.position.y
+    : (node: { position: { x: number } }) => node.position.x;
+}
 
+/** Fallbacks for a topic that has not been measured yet. */
+const NODE_WIDTH = 170;
 const NODE_HEIGHT = 40;
-/** Vertical gap between a row of topics and its children's row. */
+/** Gap between a level of topics and the next one, along the growth axis. */
 const LEVEL_GAP = 64;
-/** Horizontal gap between sibling subtrees. */
+/** Gap between sibling subtrees, across it. */
 const SIBLING_GAP = 32;
-/** Extra horizontal gap between disconnected fragments (post-delete orphans). */
+/** Extra gap between disconnected fragments (post-delete orphans). */
 const FRAGMENT_GAP = 96;
 
 function layoutGraph(
   nodes: TopicNode[],
   edges: Edge[],
+  direction: LayoutDirection,
 ): { nodes: TopicNode[]; edges: Edge[] } {
   if (!nodes.length) return { nodes, edges };
+  const across = direction === "right";
   const byId = new Map(nodes.map((node) => [node.id, node]));
-  const { roots, children, parent, depthOf } = buildTree(nodes, edges, byX);
+  const { roots, children, parent, depthOf } = buildTree(
+    nodes,
+    edges,
+    siblingOrder(direction),
+  );
 
-  // Classic tidy tree, turned vertical: a subtree's extent is the width of
-  // its children laid side by side (never less than the topic's own width),
-  // and each topic centers horizontally over that block.
-  const widthOf = (id: string) => byId.get(id)!.measured?.width ?? 170;
+  const sizeOf = (id: string) => {
+    const node = byId.get(id)!;
+    const width = node.measured?.width ?? NODE_WIDTH;
+    const height = node.measured?.height ?? NODE_HEIGHT;
+    return across
+      ? { main: width, cross: height }
+      : { main: height, cross: width };
+  };
+
+  // Every topic at a depth shares one line, and the line is as thick as the
+  // largest topic on it. That is what keeps a long title from overlapping the
+  // level below when the tree grows sideways and depth is measured in widths.
+  const thickness: number[] = [];
+  for (const node of nodes) {
+    const depth = depthOf.get(node.id)!;
+    thickness[depth] = Math.max(thickness[depth] ?? 0, sizeOf(node.id).main);
+  }
+  const mainAt: number[] = [];
+  let mainCursor = 0;
+  for (let depth = 0; depth < thickness.length; depth++) {
+    mainAt[depth] = mainCursor;
+    mainCursor += thickness[depth] + LEVEL_GAP;
+  }
+
+  // Classic tidy tree: a subtree's extent is its children laid side by side
+  // across the cross axis (never less than the topic's own size), and each
+  // topic centers over that block.
   const extent = new Map<string, number>();
   const measure = (id: string): number => {
     const kids = children.get(id)!;
-    const kidsWidth =
+    const kidsCross =
       kids.reduce((sum, kid) => sum + measure(kid), 0) +
       SIBLING_GAP * (kids.length - 1);
-    const width = Math.max(widthOf(id), kids.length ? kidsWidth : 0);
-    extent.set(id, width);
-    return width;
+    const cross = Math.max(sizeOf(id).cross, kids.length ? kidsCross : 0);
+    extent.set(id, cross);
+    return cross;
   };
   const pos = new Map<string, { x: number; y: number }>();
-  const place = (id: string, left: number) => {
-    const width = extent.get(id)!;
-    pos.set(id, {
-      x: left + (width - widthOf(id)) / 2,
-      y: depthOf.get(id)! * (NODE_HEIGHT + LEVEL_GAP),
-    });
+  const place = (id: string, start: number) => {
+    const cross = extent.get(id)!;
+    const own = start + (cross - sizeOf(id).cross) / 2;
+    const main = mainAt[depthOf.get(id)!];
+    pos.set(id, across ? { x: main, y: own } : { x: own, y: main });
     const kids = children.get(id)!;
-    const kidsWidth =
+    const kidsCross =
       kids.reduce((sum, kid) => sum + extent.get(kid)!, 0) +
       SIBLING_GAP * (kids.length - 1);
-    let cursor = left + (width - kidsWidth) / 2;
+    let cursor = start + (cross - kidsCross) / 2;
     for (const kid of kids) {
       place(kid, cursor);
       cursor += extent.get(kid)! + SIBLING_GAP;
     }
   };
-  let left = 0;
+  let start = 0;
   for (const root of roots) {
     measure(root);
-    place(root, left);
-    left += extent.get(root)! + FRAGMENT_GAP;
+    place(root, start);
+    start += extent.get(root)! + FRAGMENT_GAP;
   }
 
   let nodesChanged = false;
@@ -980,7 +1116,8 @@ function layoutGraph(
   });
   // Loose connection mode lets a branch be drawn from either handle, so an
   // edge can arrive child → parent; flip those so every edge leaves a parent's
-  // bottom dot and enters its child's top dot.
+  // source dot and enters its child's target dot, whichever side the direction
+  // puts those on.
   let edgesChanged = false;
   const nextEdges = edges.map((edge) => {
     if (parent.get(edge.source) !== edge.target) return edge;
