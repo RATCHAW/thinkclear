@@ -37,12 +37,10 @@ export class EventsService {
     return merge(
       this.changes.pipe(
         filter((change) => change.ownerId === ownerId),
-        map(
-          ({ mindmapId, updatedAt }): MessageEvent => ({
-            type: MINDMAP_CHANGED_EVENT,
-            data: { mindmapId, updatedAt } satisfies MindmapChangedEvent,
-          }),
-        ),
+        map(({ mindmapId, updatedAt }): MessageEvent => ({
+          type: MINDMAP_CHANGED_EVENT,
+          data: { mindmapId, updatedAt } satisfies MindmapChangedEvent,
+        })),
       ),
       interval(SSE_HEARTBEAT_MS).pipe(
         map((): MessageEvent => ({ type: "ping", data: "" })),
