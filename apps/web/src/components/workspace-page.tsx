@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { MindmapCanvas } from "@/components/mindmap-canvas";
 import { MindmapLibrary } from "@/components/mindmap-library";
 import { LogoMark } from "@/components/wordmark";
+import { useMindmapEvents } from "@/hooks/use-mindmap-events";
 import { useActiveMindmap } from "@/hooks/use-mindmaps";
 import {
   setAssistantOpen,
@@ -40,6 +41,10 @@ export function WorkspacePage({
 }) {
   const activeMindmap = useActiveMindmap();
   const { assistantOpen } = useWorkspaceRoute();
+  // Server-side writes (an MCP client, the assistant, another tab) stream in
+  // over SSE for as long as the shell is mounted, so the open canvas shows an
+  // agent's edits as they happen rather than on the next refetch.
+  useMindmapEvents();
 
   return (
     <div className="relative h-svh w-full overflow-hidden">

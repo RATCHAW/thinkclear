@@ -12,6 +12,11 @@ export const mindmapKeys = {
   all: ["mindmaps"] as const,
 };
 
+// Names the graph-save mutation so the SSE hook can see one in flight — the
+// event a save triggers on the server can arrive before the PATCH response,
+// and treating it as someone else's write would reseed the canvas mid-edit.
+export const saveGraphMutationKey = ["mindmap-graph-save"] as const;
+
 export function useMindmaps() {
   return useQuery({
     queryKey: mindmapKeys.all,
@@ -94,6 +99,7 @@ export function useUpdateMindmap() {
 export function useSaveMindmapGraph() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: saveGraphMutationKey,
     mutationFn: async ({
       id,
       ...body

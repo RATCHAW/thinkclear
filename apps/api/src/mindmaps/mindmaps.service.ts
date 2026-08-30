@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -12,24 +13,28 @@ import {
   type GraphNodeRef,
   type UpdateMindmapInput,
 } from "@thinkclear/shared";
+import { EventsService } from "../events/events.service";
 import { Mindmap, MindmapDocument } from "./mindmap.schema";
 
 @Injectable()
 export class MindmapsService {
   constructor(
     @InjectModel(Mindmap.name) private readonly mindmapModel: Model<Mindmap>,
+    @Inject(EventsService) private readonly events: EventsService,
   ) {}
 
   // A mindmap is never empty: it is born with a root node carrying the map's
   // title, so opening a fresh map drops the user straight into a canvas with
   // something to branch from.
-  create(ownerId: string, title: string) {
-    return this.mindmapModel.create({
+  async create(ownerId: string, title: string) {
+    const mindmap = await this.mindmapModel.create({
       ownerId,
       title,
       nodes: [{ id: ROOT_NODE_ID, title, x: 0, y: 0 }],
       edges: [],
     });
+    this.changed(mindmap);
+    return mindmap;
   }
 
   findAllByOwner(ownerId: string) {
@@ -62,21 +67,27 @@ export class MindmapsService {
         input.edges ?? stored.edges,
       );
     }
-    return this.orNotFound(
+    const updated = this.orNotFound(
       isValidObjectId(id)
         ? await this.mindmapModel
             .findOneAndUpdate({ _id: id, ownerId }, input, { new: true })
             .exec()
         : null,
     );
+    this.changed(updated);
+    return updated;
   }
 
   async remove(ownerId: string, id: string) {
-    this.orNotFound(
+    const removed = this.orNotFound(
       isValidObjectId(id)
         ? await this.mindmapModel.findOneAndDelete({ _id: id, ownerId }).exec()
         : null,
     );
+    this.events.emitMindmapChanged(removed.ownerId, {
+      mindmapId: String(removed._id),
+      updatedAt: null,
+    });
   }
 
   /**
@@ -95,6 +106,19 @@ export class MindmapsService {
         issues,
       });
     }
+  }
+
+  /**
+   * Announces a successful write on the owner's SSE stream. Sitting here
+   * rather than in a controller is what makes the stream complete: the HTTP
+   * routes, the assistant's tools, and the MCP transport all write through
+   * these three methods, so none of them can change a mindmap silently.
+   */
+  private changed(mindmap: MindmapDocument) {
+    this.events.emitMindmapChanged(mindmap.ownerId, {
+      mindmapId: String(mindmap._id),
+      updatedAt: mindmap.updatedAt.toISOString(),
+    });
   }
 
   /**

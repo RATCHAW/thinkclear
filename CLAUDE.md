@@ -210,6 +210,33 @@ fetched document carries an `updatedAt` it didn't produce, reseeds React Flow
 state and drops any pending autosave — otherwise the debounced PATCH would
 overwrite the server-side edit with the stale local graph.
 
+### Server-side writes announce themselves over SSE
+
+`GET /api/events` (apps/api/src/events) streams one tiny event per mindmap
+write — `{ mindmapId, updatedAt }`, `updatedAt: null` for a deletion — to the
+signed-in owner, which is how an MCP client's edit appears on the open canvas
+as it happens. The event deliberately never carries the graph: the client's
+whole reaction is invalidating the mindmap list, so the canvas' `updatedAt`
+reconciliation stays the single place server edits merge into local state.
+
+The emit lives in `MindmapsService.changed()`, not in a controller, because
+the HTTP routes, the assistant's tools, and MCP all write through that
+service's three mutating methods — a transport that could write silently would
+be a transport that bypassed ownership scoping too. The web side is
+`useMindmapEvents()` (mounted once in the workspace shell) plus
+`isForeignMindmapChange` in `packages/shared/src/events.ts`, which drops the
+echo of the client's own saves: the event a save triggers can outrun the PATCH
+response, and refetching in that window makes the canvas read its own write as
+someone else's and reseed mid-edit. That is also why `useSaveMindmapGraph`
+carries a `mutationKey` — the hook checks it for an in-flight save before
+invalidating.
+
+Auth is the ordinary session cookie: EventSource cannot set headers and does
+not need to, since the stream rides the same-origin `/api` path every proxy
+already forwards (nginx's `proxy_buffering off` and 1h read timeout cover it).
+A heartbeat event every 15s keeps intermediaries from cutting the idle
+connection; reconnection is EventSource's own.
+
 ### Chat history is a real resource
 
 Conversations live in `apps/api/src/conversations` with full CRUD

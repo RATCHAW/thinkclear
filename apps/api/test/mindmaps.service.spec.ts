@@ -5,12 +5,15 @@ import { MindmapsService } from "../src/mindmaps/mindmaps.service";
 const mindmapId = "507f1f77bcf86cd799439011";
 const ownerId = "owner-1";
 
+const updatedAt = new Date("2026-08-28T10:00:00.000Z");
+
 const storedMindmap = {
   _id: mindmapId,
   ownerId,
   title: "Roadmap",
   nodes: [{ id: "root", title: "Roadmap", x: 0, y: 0 }],
   edges: [],
+  updatedAt,
 };
 
 function query<T>(value: T) {
@@ -25,11 +28,12 @@ describe("MindmapsService", () => {
     findOneAndUpdate: vi.fn(),
     findOneAndDelete: vi.fn(),
   };
+  const events = { emitMindmapChanged: vi.fn() };
   let service: MindmapsService;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new MindmapsService(model as never);
+    service = new MindmapsService(model as never, events as never);
   });
 
   it("creates every map with a root node owned by the session user", async () => {
@@ -43,6 +47,10 @@ describe("MindmapsService", () => {
       title: "Roadmap",
       nodes: [{ id: "root", title: "Roadmap", x: 0, y: 0 }],
       edges: [],
+    });
+    expect(events.emitMindmapChanged).toHaveBeenCalledWith(ownerId, {
+      mindmapId,
+      updatedAt: updatedAt.toISOString(),
     });
   });
 
@@ -99,6 +107,10 @@ describe("MindmapsService", () => {
       input,
       { new: true },
     );
+    expect(events.emitMindmapChanged).toHaveBeenCalledWith(ownerId, {
+      mindmapId,
+      updatedAt: updatedAt.toISOString(),
+    });
   });
 
   it("validates a one-sided graph patch against the stored half", async () => {
@@ -127,6 +139,7 @@ describe("MindmapsService", () => {
       service.update(ownerId, mindmapId, input),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(model.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(events.emitMindmapChanged).not.toHaveBeenCalled();
   });
 
   it("scopes deletion by owner and rejects malformed ids without a query", async () => {
@@ -137,11 +150,19 @@ describe("MindmapsService", () => {
       _id: mindmapId,
       ownerId,
     });
+    // A deletion is announced with a null updatedAt — there is no post-write
+    // document to stamp it from, and null is what tells the client the map is
+    // gone rather than changed.
+    expect(events.emitMindmapChanged).toHaveBeenCalledWith(ownerId, {
+      mindmapId,
+      updatedAt: null,
+    });
 
     vi.clearAllMocks();
     await expect(service.remove(ownerId, "bad-id")).rejects.toBeInstanceOf(
       NotFoundException,
     );
     expect(model.findOneAndDelete).not.toHaveBeenCalled();
+    expect(events.emitMindmapChanged).not.toHaveBeenCalled();
   });
 });

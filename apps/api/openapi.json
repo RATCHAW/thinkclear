@@ -32,6 +32,20 @@
         ]
       }
     },
+    "/api/events": {
+      "get": {
+        "operationId": "EventsController_stream",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Server-sent events. Each `mindmap` event carries { mindmapId, updatedAt } for a mindmap of the signed-in user that changed; updatedAt is null when it was deleted."
+          }
+        },
+        "tags": [
+          "events"
+        ]
+      }
+    },
     "/api/mindmaps": {
       "get": {
         "operationId": "MindmapsController_findMine",
