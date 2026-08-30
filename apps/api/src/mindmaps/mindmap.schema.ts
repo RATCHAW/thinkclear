@@ -51,6 +51,10 @@ export class Mindmap {
 
   @Prop({ type: [SchemaFactory.createForClass(MindmapEdge)], default: [] })
   edges: MindmapEdge[];
+
+  // Written by `timestamps: true`, declared (without @Prop — Mongoose owns the
+  // path) so reads of `doc.updatedAt` type-check.
+  updatedAt: Date;
 }
 
 export type MindmapDocument = HydratedDocument<Mindmap>;
