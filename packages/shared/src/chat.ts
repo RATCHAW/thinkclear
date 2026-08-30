@@ -44,8 +44,8 @@ export const MUTATING_CHAT_TOOLS = [
   "rename_mindmap",
   "delete_mindmap",
   "add_topics",
-  "rename_topic",
-  "move_topic",
+  "rename_topics",
+  "move_topics",
   "delete_topics",
   "set_topic_note",
 ] as const;

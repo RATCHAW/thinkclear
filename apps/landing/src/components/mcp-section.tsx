@@ -14,7 +14,12 @@ const SCOPES = [
   {
     scope: "mindmaps:read",
     summary: "Read your mindmaps and the topics inside them",
-    tools: ["list_mindmaps", "read_mindmap", "read_topic_note"],
+    tools: [
+      "list_mindmaps",
+      "read_mindmap",
+      "search_topics",
+      "read_topic_note",
+    ],
   },
   {
     scope: "mindmaps:write",
@@ -24,8 +29,8 @@ const SCOPES = [
       "rename_mindmap",
       "delete_mindmap",
       "add_topics",
-      "rename_topic",
-      "move_topic",
+      "rename_topics",
+      "move_topics",
       "delete_topics",
       "set_topic_note",
     ],

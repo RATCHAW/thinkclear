@@ -213,19 +213,25 @@ describe("MCP over the real mindmap tools", () => {
       "delete_mindmap",
       "delete_topics",
       "list_mindmaps",
-      "move_topic",
+      "move_topics",
       "read_mindmap",
       "read_topic_note",
       "rename_mindmap",
-      "rename_topic",
+      "rename_topics",
+      "search_topics",
       "set_topic_note",
     ]);
   });
 
-  it("lets a read-only token read notes but not write them", async () => {
+  it("lets a read-only token read and search notes but not write them", async () => {
     expect(
       names(await call("tools/list", undefined, ["mindmaps:read"])),
-    ).toEqual(["list_mindmaps", "read_mindmap", "read_topic_note"]);
+    ).toEqual([
+      "list_mindmaps",
+      "read_mindmap",
+      "read_topic_note",
+      "search_topics",
+    ]);
   });
 
   it("warns that writing a note replaces what was there", async () => {

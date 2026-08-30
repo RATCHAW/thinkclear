@@ -116,8 +116,8 @@ is taken back.
 
 | Scope | |
 |---|---|
-| `mindmaps:read` | `list_mindmaps`, `read_mindmap`, `read_topic_note` |
-| `mindmaps:write` | `create_mindmap`, `rename_mindmap`, `delete_mindmap`, `add_topics`, `rename_topic`, `move_topic`, `delete_topics`, `set_topic_note` |
+| `mindmaps:read` | `list_mindmaps`, `read_mindmap`, `search_topics`, `read_topic_note` |
+| `mindmaps:write` | `create_mindmap`, `rename_mindmap`, `delete_mindmap`, `add_topics`, `rename_topics`, `move_topics`, `delete_topics`, `set_topic_note` |
 
 Scopes are enforced by leaving tools out: a token without `mindmaps:write`
 serves a tool list with no way to edit anything, so the client's model never

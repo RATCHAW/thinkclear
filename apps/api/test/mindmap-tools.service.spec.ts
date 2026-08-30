@@ -32,6 +32,52 @@ const withNote = (note: string) => {
   };
 };
 
+/** The same document with two topics hanging off "db". */
+const withChildrenOfDb = () => {
+  const doc = storedMindmap();
+  return {
+    ...doc,
+    nodes: [
+      ...doc.nodes,
+      { id: "sql", title: "SQL", x: 0, y: 312 },
+      { id: "nosql", title: "NoSQL", x: 200, y: 312 },
+    ],
+    edges: [
+      ...doc.edges,
+      { id: "e3", source: "db", target: "sql" },
+      { id: "e4", source: "db", target: "nosql" },
+    ],
+  };
+};
+
+/**
+ * Two mindmaps: one holding a word only in a note, the other holding it only
+ * in a title — the two halves of what a search has to reach.
+ */
+const searchable = () => [
+  {
+    ...storedMindmap(),
+    nodes: storedMindmap().nodes.map((node) =>
+      node.id === "db"
+        ? {
+            ...node,
+            note: "The Postgres migration lands in Q2, after the\nindex rewrite.",
+          }
+        : node,
+    ),
+  },
+  {
+    _id: "507f1f77bcf86cd799439012",
+    ownerId,
+    title: "Trip",
+    nodes: [
+      { id: "root", title: "Trip", x: 0, y: 0 },
+      { id: "gear", title: "Postgres sticker", x: 0, y: 104 },
+    ],
+    edges: [{ id: "e5", source: "root", target: "gear" }],
+  },
+];
+
 /** Bare-bones ToolCallOptions; the tools never read it. */
 const callOptions = { toolCallId: "call-1", messages: [] } as never;
 
@@ -112,8 +158,8 @@ describe("MindmapToolsService", () => {
   });
 
   it("moves a topic under a new parent by re-pointing its parent edge", async () => {
-    await tools.move_topic!.execute!(
-      { mindmapId, nodeId: "db", newParentId: "root" },
+    await tools.move_topics!.execute!(
+      { mindmapId, nodeIds: ["db"], newParentId: "root" },
       callOptions,
     );
 
@@ -125,21 +171,48 @@ describe("MindmapToolsService", () => {
     expect(findMindmapGraphIssues(written.nodes, written.edges)).toEqual([]);
   });
 
-  it("refuses to move a topic into its own branch", async () => {
-    const result = await tools.move_topic!.execute!(
-      { mindmapId, nodeId: "backend", newParentId: "db" },
+  it("re-parents a set of siblings in one write, a repeated id counting once", async () => {
+    // The shape the batch exists for: emptying a topic of its children
+    // before deleting it, which used to be one call per child.
+    mindmaps.findOne.mockResolvedValue(withChildrenOfDb());
+
+    const result = (await tools.move_topics!.execute!(
+      { mindmapId, nodeIds: ["sql", "nosql", "sql"], newParentId: "backend" },
+      callOptions,
+    )) as { summary: string };
+
+    expect(result.summary).toBe("Moved 2 topics");
+    expect(mindmaps.update).toHaveBeenCalledTimes(1);
+    const [, , written] = mindmaps.update.mock.calls[0];
+    expect(
+      written.edges.map(
+        (edge: { source: string; target: string }) =>
+          `${edge.source}>${edge.target}`,
+      ),
+    ).toEqual(["root>backend", "backend>db", "backend>sql", "backend>nosql"]);
+    expect(findMindmapGraphIssues(written.nodes, written.edges)).toEqual([]);
+  });
+
+  it("refuses the whole batch when one topic would move into its own branch", async () => {
+    const result = await tools.move_topics!.execute!(
+      { mindmapId, nodeIds: ["root", "backend"], newParentId: "db" },
       callOptions,
     );
-
     expect(result).toMatchObject({
-      error: expect.stringContaining("loop"),
+      error: expect.stringContaining("root topic cannot be moved"),
     });
+
+    const looped = await tools.move_topics!.execute!(
+      { mindmapId, nodeIds: ["db", "backend"], newParentId: "db" },
+      callOptions,
+    );
+    expect(looped).toMatchObject({ error: expect.stringContaining("loop") });
     expect(mindmaps.update).not.toHaveBeenCalled();
   });
 
   it("renaming the root topic renames the mindmap with it", async () => {
-    await tools.rename_topic!.execute!(
-      { mindmapId, nodeId: "root", title: "Master plan" },
+    await tools.rename_topics!.execute!(
+      { mindmapId, renames: [{ nodeId: "root", title: "Master plan" }] },
       callOptions,
     );
 
@@ -150,13 +223,63 @@ describe("MindmapToolsService", () => {
     );
   });
 
+  it("retitles a batch of topics in one write, and leaves the map's title alone", async () => {
+    const result = (await tools.rename_topics!.execute!(
+      {
+        mindmapId,
+        renames: [
+          { nodeId: "backend", title: "Q1: Backend" },
+          { nodeId: "db", title: "Q1: Databases" },
+        ],
+      },
+      callOptions,
+    )) as { summary: string };
+
+    expect(result.summary).toBe("Renamed 2 topics");
+    expect(mindmaps.update).toHaveBeenCalledTimes(1);
+    const [, , written] = mindmaps.update.mock.calls[0];
+    expect(written.title).toBeUndefined();
+    expect(written.nodes.map((node: { title: string }) => node.title)).toEqual([
+      "Roadmap",
+      "Q1: Backend",
+      "Q1: Databases",
+    ]);
+  });
+
+  it("refuses a batch that renames one topic twice, or names a topic that is gone", async () => {
+    const twice = await tools.rename_topics!.execute!(
+      {
+        mindmapId,
+        renames: [
+          { nodeId: "db", title: "Storage" },
+          { nodeId: "db", title: "Persistence" },
+        ],
+      },
+      callOptions,
+    );
+    expect(twice).toMatchObject({ error: expect.stringContaining("twice") });
+
+    const ghost = await tools.rename_topics!.execute!(
+      {
+        mindmapId,
+        renames: [
+          { nodeId: "db", title: "Storage" },
+          { nodeId: "ghost", title: "Lost" },
+        ],
+      },
+      callOptions,
+    );
+    expect(ghost).toMatchObject({ error: expect.stringContaining("ghost") });
+    expect(mindmaps.update).not.toHaveBeenCalled();
+  });
+
   it("carries topic notes through an edit that has nothing to do with them", async () => {
     // Every tool here reads the document and writes the whole node array
     // back, so any field the read forgets is a field the next edit erases.
     mindmaps.findOne.mockResolvedValue(withNote("Ship the **API** first."));
 
-    await tools.rename_topic!.execute!(
-      { mindmapId, nodeId: "root", title: "Master plan" },
+    await tools.rename_topics!.execute!(
+      { mindmapId, renames: [{ nodeId: "root", title: "Master plan" }] },
       callOptions,
     );
 
@@ -222,6 +345,68 @@ describe("MindmapToolsService", () => {
       ),
     ).resolves.toMatchObject({ error: expect.stringContaining("ghost") });
     expect(mindmaps.update).not.toHaveBeenCalled();
+  });
+
+  it("searches prose that no outline contains, and says where it sits", async () => {
+    mindmaps.findAllByOwner.mockResolvedValue(searchable());
+
+    const result = (await tools.search_topics!.execute!(
+      { query: "Postgres migration" },
+      callOptions,
+    )) as { summary: string; results: Record<string, string>[] };
+
+    // "Postgres sticker" in the other map has the first word and not the
+    // second, so every word has to land in the same topic.
+    expect(result.summary).toBe("Found 1 topic in 1 mindmap");
+    expect(result.results).toEqual([
+      {
+        mindmapId,
+        mindmapTitle: "Roadmap",
+        nodeId: "db",
+        title: "Databases",
+        matchedIn: "note",
+        path: "Roadmap › Backend",
+        noteSnippet:
+          "The Postgres migration lands in Q2, after the index rewrite.",
+      },
+    ]);
+  });
+
+  it("searches every mindmap at once, by title and by note", async () => {
+    mindmaps.findAllByOwner.mockResolvedValue(searchable());
+
+    const result = (await tools.search_topics!.execute!(
+      { query: "postgres" },
+      callOptions,
+    )) as { summary: string; results: { nodeId: string; matchedIn: string }[] };
+
+    expect(result.summary).toBe("Found 2 topics in 2 mindmaps");
+    expect(
+      result.results.map((match) => [match.nodeId, match.matchedIn]),
+    ).toEqual([
+      ["db", "note"],
+      ["gear", "title"],
+    ]);
+  });
+
+  it("narrows to one mindmap, and can be told to leave notes out", async () => {
+    mindmaps.findOne.mockResolvedValue(searchable()[0]);
+
+    const scoped = (await tools.search_topics!.execute!(
+      { query: "postgres", mindmapId },
+      callOptions,
+    )) as { results: unknown[] };
+
+    expect(mindmaps.findAllByOwner).not.toHaveBeenCalled();
+    expect(scoped.results).toHaveLength(1);
+
+    const titlesOnly = (await tools.search_topics!.execute!(
+      { query: "postgres", mindmapId, includeNotes: false },
+      callOptions,
+    )) as { summary: string; results: unknown[] };
+
+    expect(titlesOnly.results).toEqual([]);
+    expect(titlesOnly.summary).toBe('Nothing matches "postgres"');
   });
 
   it("creates a mindmap with a whole topic tree in one call", async () => {

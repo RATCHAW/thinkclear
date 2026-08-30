@@ -164,7 +164,8 @@ const INSTRUCTIONS = [
   "Topics are connected parent → child. No loops, no duplicate connections, at most 500 topics and 1000 connections per mindmap.",
   "Topic ids appear in [brackets] in the outlines read_mindmap returns; use those exact ids when editing.",
   "",
-  "Call list_mindmaps to turn a name the user said into an id, and read_mindmap before editing so you edit current state. Prefer one call that does the whole job — add_topics takes a nested tree. Keep topic titles short, a few words, like nodes on a whiteboard.",
+  "Call list_mindmaps to turn a name the user said into an id, and read_mindmap before editing so you edit current state. Prefer one call that does the whole job — add_topics takes a nested tree, and rename_topics, move_topics and delete_topics take lists. Keep topic titles short, a few words, like nodes on a whiteboard.",
+  "search_topics finds topics by words in their title or note across every mindmap at once. Notes are never in an outline, so searching is the only way to reach what a topic says without reading it topic by topic.",
   "A tool that returns an `error` with `issues` is telling you how to repair the edit; fix it and retry rather than asking the user.",
   "delete_mindmap is irreversible — confirm with the user before calling it.",
 ].join("\n");

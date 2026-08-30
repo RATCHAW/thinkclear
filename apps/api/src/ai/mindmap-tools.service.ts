@@ -60,6 +60,55 @@ export class MindmapToolsService {
           }),
       }),
 
+      search_topics: tool({
+        description:
+          'Find topics across the user\'s mindmaps by words in their title or note. Searches every mindmap unless mindmapId narrows it to one. This is how to answer "where did I write about X": a read_mindmap outline marks which topics have notes but never contains the prose, so reading maps one by one to look for a word both misses note text and costs a call per map.',
+        inputSchema: z.object({
+          query: z
+            .string()
+            .trim()
+            .min(1)
+            .max(200)
+            .describe(
+              "Words to look for. A topic matches when its title contains all of them, or its note does.",
+            ),
+          mindmapId: z
+            .string()
+            .optional()
+            .describe("Search only this mindmap; omit to search all of them"),
+          includeNotes: z
+            .boolean()
+            .optional()
+            .describe("Search note text as well as titles. Defaults to true."),
+        }),
+        execute: ({ query, mindmapId, includeNotes = true }) =>
+          this.run(async () => {
+            const docs = mindmapId
+              ? [await this.mindmaps.findOne(ownerId, mindmapId)]
+              : await this.mindmaps.findAllByOwner(ownerId);
+            const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+            const found = docs.flatMap((doc) =>
+              this.matchesIn(doc, terms, includeNotes),
+            );
+            const results = found.slice(0, MAX_SEARCH_RESULTS);
+            const maps = new Set(found.map((match) => match.mindmapId)).size;
+            // A cap that is hit says so: "50 matches" and "the first 50 of
+            // 137" are different answers, and only one of them means the
+            // model should narrow the query and search again.
+            const capped =
+              found.length > results.length
+                ? `, showing the first ${MAX_SEARCH_RESULTS}`
+                : "";
+            return {
+              summary: found.length
+                ? `Found ${found.length} topic${found.length === 1 ? "" : "s"} in ${maps} mindmap${maps === 1 ? "" : "s"}${capped}`
+                : `Nothing matches "${query}"`,
+              query,
+              results,
+            };
+          }),
+      }),
+
       create_mindmap: tool({
         description:
           "Create a new mindmap. The root topic takes the mindmap's title. Optionally pass `topics` to create a whole tree under the root in one call.",
@@ -166,32 +215,53 @@ export class MindmapToolsService {
           }),
       }),
 
-      rename_topic: tool({
+      rename_topics: tool({
         description:
-          "Rename one topic. Renaming the root topic also renames the mindmap itself.",
+          "Rename topics. Retitling several at once — a prefix, a shortening, a translation — is one call, not one per topic. Renaming the root topic also renames the mindmap itself.",
         inputSchema: z.object({
           mindmapId: z.string(),
-          nodeId: z.string(),
-          title: titleSchema,
+          renames: z
+            .array(z.object({ nodeId: z.string(), title: titleSchema }))
+            .min(1)
+            .max(100)
+            .describe("One entry per topic to rename"),
         }),
-        execute: ({ mindmapId, nodeId, title }) =>
+        execute: ({ mindmapId, renames }) =>
           this.run(async () => {
             const doc = await this.mindmaps.findOne(ownerId, mindmapId);
-            if (!doc.nodes.some((node) => node.id === nodeId)) {
-              return { error: `No topic with id "${nodeId}" in this mindmap.` };
+            const titles = new Map<string, string>();
+            for (const rename of renames) {
+              // Two titles for one topic is a batch built wrong. Taking the
+              // last one would apply half of what was asked and say it worked.
+              if (titles.has(rename.nodeId)) {
+                return {
+                  error: `Topic "${rename.nodeId}" is renamed twice in this call. Send one title per topic.`,
+                };
+              }
+              titles.set(rename.nodeId, rename.title);
             }
-            const nodes = plainNodes(doc).map((node) =>
-              node.id === nodeId ? { ...node, title } : node,
+            const missing = [...titles.keys()].filter(
+              (id) => !doc.nodes.some((node) => node.id === id),
             );
+            if (missing.length) {
+              return {
+                error: `No topic with id ${missing.map((id) => `"${id}"`).join(", ")} in this mindmap.`,
+              };
+            }
+            const nodes = plainNodes(doc).map((node) => {
+              const title = titles.get(node.id);
+              return title ? { ...node, title } : node;
+            });
+            const rootTitle = titles.get(ROOT_NODE_ID);
             const updated = await this.save(ownerId, mindmapId, {
               nodes,
               edges: plainEdges(doc),
               // The canvas keeps the map's title mirrored on the root topic;
               // an AI rename must go through the same coupling or they drift.
-              ...(nodeId === ROOT_NODE_ID ? { title } : {}),
+              ...(rootTitle ? { title: rootTitle } : {}),
             });
             return {
-              summary: `Renamed topic to "${title}"`,
+              summary: `Renamed ${titles.size} topic${titles.size === 1 ? "" : "s"}`,
               ...this.describe(updated),
             };
           }),
@@ -259,54 +329,75 @@ export class MindmapToolsService {
           }),
       }),
 
-      move_topic: tool({
+      move_topics: tool({
         description:
-          "Move a topic (with its whole branch) under a different parent topic.",
+          "Move topics (each with its whole branch) under one different parent topic. Re-parenting several siblings at once is one call, not one per topic.",
         inputSchema: z.object({
           mindmapId: z.string(),
-          nodeId: z.string().describe("The topic to move"),
-          newParentId: z.string().describe("The topic to move it under"),
+          nodeIds: z
+            .array(z.string())
+            .min(1)
+            .max(100)
+            .describe("The topics to move, all under the same new parent"),
+          newParentId: z.string().describe("The topic to move them under"),
         }),
-        execute: ({ mindmapId, nodeId, newParentId }) =>
+        execute: ({ mindmapId, nodeIds, newParentId }) =>
           this.run(async () => {
             const doc = await this.mindmaps.findOne(ownerId, mindmapId);
             const nodes = plainNodes(doc);
             const edges = plainEdges(doc);
-            for (const id of [nodeId, newParentId]) {
-              if (!nodes.some((node) => node.id === id)) {
-                return { error: `No topic with id "${id}" in this mindmap.` };
-              }
+            // A topic named twice is one move, not two edges to the same
+            // parent — the second would be a duplicate connection.
+            const moving = [...new Set(nodeIds)];
+            const missing = [...moving, newParentId].filter(
+              (id) => !nodes.some((node) => node.id === id),
+            );
+            if (missing.length) {
+              return {
+                error: `No topic with id ${missing.map((id) => `"${id}"`).join(", ")} in this mindmap.`,
+              };
             }
-            if (nodeId === ROOT_NODE_ID) {
+            if (moving.includes(ROOT_NODE_ID)) {
               return { error: "The root topic cannot be moved." };
             }
             const tree = buildTree(nodes, edges, byX);
-            if (
-              nodeId === newParentId ||
-              descendantsOf(tree, nodeId).includes(newParentId)
-            ) {
+            // Checked against the tree as it stands, which is enough: every
+            // move lands under the same parent, and a parent whose own
+            // ancestry is being moved is caught by that ancestor's check.
+            const looping = moving.filter(
+              (id) =>
+                id === newParentId ||
+                descendantsOf(tree, id).includes(newParentId),
+            );
+            if (looping.length) {
               return {
-                error: `Cannot move "${nodeId}" under its own branch — that would create a loop.`,
+                error: `Cannot move ${looping.map((id) => `"${id}"`).join(", ")} under its own branch — that would create a loop.`,
               };
             }
-            const parent = tree.parent.get(nodeId);
+            // Drop each moved topic's edge to its current parent, whichever
+            // way round it was drawn, and hang it off the new one instead.
+            const detaches = (child: string, parent: string) =>
+              moving.includes(child) && tree.parent.get(child) === parent;
             const nextEdges = edges.filter(
               (edge) =>
-                !(
-                  (edge.source === nodeId && edge.target === parent) ||
-                  (edge.source === parent && edge.target === nodeId)
-                ),
+                !detaches(edge.target, edge.source) &&
+                !detaches(edge.source, edge.target),
             );
-            nextEdges.push({
-              id: randomUUID(),
-              source: newParentId,
-              target: nodeId,
-            });
+            for (const id of moving) {
+              nextEdges.push({
+                id: randomUUID(),
+                source: newParentId,
+                target: id,
+              });
+            }
             const updated = await this.save(ownerId, mindmapId, {
               nodes,
               edges: nextEdges,
             });
-            return { summary: "Moved topic", ...this.describe(updated) };
+            return {
+              summary: `Moved ${moving.length} topic${moving.length === 1 ? "" : "s"}`,
+              ...this.describe(updated),
+            };
           }),
       }),
 
@@ -448,6 +539,49 @@ export class MindmapToolsService {
   }
 
   /**
+   * Every topic in one mindmap carrying all of `terms` in its title or in its
+   * note, in outline order. The note half is the reason the tool exists: no
+   * outline contains the prose, so a word only written in a note is otherwise
+   * reachable exactly one read_topic_note at a time.
+   *
+   * Each match carries the trail of ancestor titles that says where in the map
+   * it sits, so "which of the three 'Migration' topics is this" is answered
+   * without a second read.
+   */
+  private matchesIn(
+    doc: MindmapDocument,
+    terms: string[],
+    includeNotes: boolean,
+  ): TopicMatch[] {
+    const nodes = plainNodes(doc);
+    const byId = new Map(nodes.map((node) => [node.id, node]));
+    const tree = buildTree(nodes, plainEdges(doc), byX);
+    const found: TopicMatch[] = [];
+    const walk = (id: string, trail: string[]) => {
+      const node = byId.get(id);
+      if (!node) return;
+      const note = includeNotes ? (node.note ?? "") : "";
+      const inTitle = holdsAll(node.title, terms);
+      const inNote = note ? holdsAll(note, terms) : false;
+      if (inTitle || inNote) {
+        found.push({
+          mindmapId: String(doc._id),
+          mindmapTitle: doc.title,
+          nodeId: node.id,
+          title: node.title,
+          matchedIn: inTitle && inNote ? "both" : inTitle ? "title" : "note",
+          ...(trail.length ? { path: trail.join(" › ") } : {}),
+          ...(inNote ? { noteSnippet: snippet(note, terms) } : {}),
+        });
+      }
+      const below = [...trail, node.title];
+      for (const kid of tree.children.get(id) ?? []) walk(kid, below);
+    };
+    for (const root of tree.roots) walk(root, []);
+    return found;
+  }
+
+  /**
    * Tool errors go back to the model as data instead of throwing: a 400 from
    * the graph check carries the full issue list, which is exactly what the
    * model needs to repair its edit — same design as the HTTP route, one
@@ -487,6 +621,48 @@ export class MindmapToolsService {
 const titleSchema = z.string().trim().min(1).max(200);
 
 type NewTopic = { title: string; children?: NewTopic[] };
+
+/** One hit from `search_topics`. */
+type TopicMatch = {
+  mindmapId: string;
+  mindmapTitle: string;
+  nodeId: string;
+  title: string;
+  matchedIn: "title" | "note" | "both";
+  /** Ancestor titles, root first. Absent on the root topic itself. */
+  path?: string;
+  noteSnippet?: string;
+};
+
+/**
+ * A search answers with topics, not with mindmaps, so the cap is on rows and
+ * a hit is one line — 50 is a list a model can act on, and the summary says
+ * when there were more rather than letting the tail vanish quietly.
+ */
+const MAX_SEARCH_RESULTS = 50;
+const SNIPPET_LENGTH = 180;
+const SNIPPET_MARGIN = 60;
+
+/** Case-insensitive "contains every word" — the whole matching rule. */
+function holdsAll(text: string, terms: string[]): boolean {
+  const haystack = text.toLowerCase();
+  return terms.every((term) => haystack.includes(term));
+}
+
+/**
+ * A window of the note around the first word that matched. Notes run to
+ * MAX_NOTE_LENGTH, so a library-wide search that returned them whole would
+ * spend more context on one answer than reading the maps would have.
+ */
+function snippet(note: string, terms: string[]): string {
+  const flat = note.replace(/\s+/g, " ").trim();
+  const at = flat.toLowerCase().indexOf(terms[0]);
+  const from = Math.max(0, at - SNIPPET_MARGIN);
+  const to = Math.min(flat.length, from + SNIPPET_LENGTH);
+  const head = from > 0 ? "…" : "";
+  const tail = to < flat.length ? "…" : "";
+  return head + flat.slice(from, to) + tail;
+}
 
 /**
  * Nested topic input, capped at a fixed depth instead of using a recursive
