@@ -7,6 +7,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(repositoryRoot, "apps/web/src"),
+      // The landing app owns `@` inside its own project below; this list is
+      // shared, so its alias is set there rather than here.
       // Tests always exercise the checked-out source, never a stale workspace
       // build left in packages/shared/dist.
       "@thinkclear/shared": resolve(
@@ -45,6 +47,33 @@ export default defineConfig({
         test: {
           name: "web:spec",
           root: resolve(repositoryRoot, "apps/web"),
+          environment: "node",
+          include: ["test/**/*.spec.ts"],
+        },
+      },
+      // The landing app has no runtime dependency on anything else here — and
+      // still must not drift from it. What it serves to agents now restates
+      // facts the API owns (the MCP tool names and their scopes) and facts the
+      // platform owns (the `Vary` header in `vercel.json`), so these specs check
+      // the copies against the originals. That is the whole reason this project
+      // exists: importing `@thinkclear/shared` in a *test* catches the drift
+      // without putting it in the bundle.
+      {
+        resolve: {
+          // A project's aliases replace the shared ones rather than adding to
+          // them, so `@thinkclear/shared` is restated here — it is the whole
+          // point of this project that a spec can reach it.
+          alias: {
+            "@": resolve(repositoryRoot, "apps/landing/src"),
+            "@thinkclear/shared": resolve(
+              repositoryRoot,
+              "packages/shared/src/index.ts",
+            ),
+          },
+        },
+        test: {
+          name: "landing:spec",
+          root: resolve(repositoryRoot, "apps/landing"),
           environment: "node",
           include: ["test/**/*.spec.ts"],
         },

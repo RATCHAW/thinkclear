@@ -6,11 +6,16 @@ import { ButtonLink } from "@/components/ui/button";
 import { Wordmark } from "@/components/wordmark";
 import { SIGN_UP_URL } from "@/lib/site";
 
+/**
+ * Rooted anchors (`/#features`, not `#features`) because this header is on the
+ * written pages too now, and a bare fragment there scrolls to a section that is
+ * not on the page — silently, which is the worst way for a link to fail.
+ */
 const NAV_LINKS = [
-  { href: "#features", label: "Features" },
-  { href: "#mcp", label: "MCP" },
-  { href: "#how-it-works", label: "How it works" },
-  { href: "#open-source", label: "Open source" },
+  { href: "/#features", label: "Features" },
+  { href: "/mcp", label: "MCP" },
+  { href: "/#how-it-works", label: "How it works" },
+  { href: "/#open-source", label: "Open source" },
 ];
 
 /**
@@ -34,7 +39,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 border-b border-hairline bg-cloud/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-page items-center gap-6 px-5 sm:px-8">
         <a
-          href="#top"
+          href="/#top"
           className="flex items-center gap-2 rounded-[4px] text-ink-navy"
           aria-label="ThinkClear, back to top"
         >

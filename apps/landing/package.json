@@ -7,7 +7,7 @@
     "dev": "next dev --port 4000",
     "build": "next build",
     "start": "next start --port 4000",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit && tsc -p tsconfig.test.json"
   },
   "dependencies": {
     "next": "^16.3.3",

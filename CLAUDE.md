@@ -25,7 +25,7 @@ pnpm openapi                        # regenerate openapi.json + web api-types.d.
 ```
 
 Vitest is split into named projects: `shared:spec`, `api:spec`, `web:spec`,
-`api:e2e`, and `web:e2e`. The browser project uses headless Chromium through
+`landing:spec`, `api:e2e`, and `web:e2e`. The browser project uses headless Chromium through
 Vitest Browser Mode. Install it once with `pnpm test:install-browser`
 if the local Playwright cache is empty. ESLint and Prettier are configured once
 at the repository root; formatting rules are disabled inside ESLint so the two
@@ -38,9 +38,16 @@ a stale build.
 Single-workspace commands: `pnpm --filter @thinkclear/api <script>` (likewise
 `@thinkclear/web`, `@thinkclear/landing`, `@thinkclear/shared`).
 
-`apps/landing` is outside all of that on purpose: it has no tests, no generated
-contract, and no dependency on `packages/shared`, so nothing above needs it and
-`pnpm --filter @thinkclear/landing dev` is enough to work on it alone.
+`apps/landing` is nearly outside all of that on purpose: no generated contract
+and no dependency on `packages/shared`, so `pnpm --filter @thinkclear/landing
+dev` is enough to work on it alone. Its `landing:spec` project is the one thread
+back, and it is deliberately thin — the app still imports nothing, but the specs
+import `@thinkclear/shared` to check the facts the site now restates to agents
+(the MCP tool names and their scopes) against the definitions the API enforces.
+That is why `apps/landing/tsconfig.json` excludes `test` and
+`tsconfig.test.json` picks it up with a path to shared: the app config cannot
+resolve a workspace package at all, so the rule is a compile error rather than a
+convention.
 
 ## Dev servers
 
@@ -491,10 +498,15 @@ code that makes the claim true move in one commit, and it is coupled to nothing
 here on purpose:
 
 - **It imports no workspace package.** `lib/site.ts` is the entire contract
-  with the rest of the product: the app's origin, the MCP endpoint, and the
-  GitHub URLs, written literally for the same reason the API host is literal in
-  the root `vercel.json`. A landing that imported `@thinkclear/shared` would
-  make a marketing copy change a reason to rebuild the API.
+  with the rest of the product: the app's origin, the MCP endpoint, the OAuth
+  discovery URLs, and the GitHub URLs, written literally for the same reason the
+  API host is literal in the root `vercel.json`. A landing that imported
+  `@thinkclear/shared` would make a marketing copy change a reason to rebuild
+  the API. It is enforced rather than remembered: `tsconfig.json` has no path to
+  any workspace package, so app code that reached for one would not compile.
+  Where the site has to restate something the API owns — the MCP tool names and
+  their scopes, in `lib/content.ts` — the copy is checked against the original
+  in `test/content.spec.ts`, which is allowed the import the app is not.
 - **It has its own visual system, and that is the point.** `apps/web`
   implements DESIGN.md; `apps/landing/src/app/globals.css` implements the
   Calendly-derived one — navy ink on cool marble, one vivid blue for filled
@@ -520,6 +532,44 @@ here on purpose:
 
 `pnpm dev` now starts three servers; the landing takes **:4000** so it does not
 collide with the API on :3000.
+
+#### Every page here is served twice
+
+The same URL answers with HTML to a browser and with markdown to a client that
+sends `Accept: text/markdown` (the acceptmarkdown.com convention). `src/proxy.ts`
+— Next 16's name for what used to be `middleware.ts` — makes the choice with
+`lib/accept.ts`, which implements RFC 9110 §12.5.1 properly: **specificity
+before q-value**, so the fully wildcarded `Accept` that curl and most crawlers
+send still gets HTML, and only a client that names markdown more specifically
+(or with a higher q) gets markdown. An `Accept` this site can satisfy in neither
+form is a 406. RSC requests are skipped outright — the router's own `Accept` is
+`text/x-component`, and negotiating it would 406 client-side navigation.
+
+Two consequences worth knowing before changing any of it:
+
+- **`Vary` is set in two places and has to say the same thing in both.** Next
+  owns `Vary` on an App Router page response and overwrites whatever
+  `next.config.ts` puts there — silently, since every *other* custom header
+  lands. So the proxy sets it on the responses it builds and
+  `apps/landing/vercel.json` sets it on the statically served ones, with Next's
+  four `Next-Router-*` entries restated alongside `Accept` because a bare
+  `Vary: Accept` would trade one cache-poisoning bug for another.
+  `test/content.spec.ts` asserts the two copies are equal.
+- **The prose is written once, as data.** `lib/documents.ts` holds `/about`,
+  `/contact`, `/privacy` and `/mcp` as a small block model;
+  `components/document-page.tsx` renders it into the visual system and
+  `lib/markdown.ts` into CommonMark. Two hand-written copies would drift, and
+  the one that drifts is always the machine-readable one because nobody looks at
+  it. Same reason `lib/content.ts` holds the FAQ the section, the `FAQPage`
+  markup, and the markdown all read.
+
+The 404 is part of this rather than an afterthought: `app/not-found.tsx` spends
+itself on recovery links, and an unmatched path asked for in markdown gets the
+same list as CommonMark with a real 404 status. `/llms.txt` (llmstxt.org shape,
+with the when-to-use guidance an agent is actually holding) and
+`/.well-known/mcp.json` are both routes built from the same constants, not
+checked-in files, so the endpoint they name cannot fall behind the one that
+exists.
 
 ### Deployment: two hosts, one origin
 

@@ -4,6 +4,7 @@ import {
   APP_URL,
   GITHUB_DEPLOYMENT_URL,
   GITHUB_DESIGN_URL,
+  GITHUB_ISSUES_URL,
   GITHUB_LICENSE_URL,
   GITHUB_README_URL,
   GITHUB_URL,
@@ -11,23 +12,34 @@ import {
   MCP_GUIDE_URL,
   SIGN_UP_URL,
   SITE_NAME,
+  SITE_TAGLINE,
 } from "@/lib/site";
 
+/**
+ * The footer is where a page that is not the home page still has to be able to
+ * name everything, so the anchors are rooted (`/#features`) and the four written
+ * pages are in it. The developer column is deliberately the one that leads with
+ * on-site URLs: the MCP reference and `llms.txt` are what somebody — or
+ * something — searching this product by name is trying to find, and a column of
+ * links that all leave for GitHub gives a crawler nothing here to index.
+ */
 const COLUMNS = [
   {
     heading: "Product",
     links: [
-      { href: "#features", label: "Features" },
-      { href: "#mcp", label: "MCP" },
-      { href: "#how-it-works", label: "How it works" },
+      { href: "/#features", label: "Features" },
+      { href: "/#how-it-works", label: "How it works" },
+      { href: "/#open-source", label: "Open source" },
       { href: APP_URL, label: "Open the app" },
     ],
   },
   {
     heading: "Developers",
     links: [
-      { href: GITHUB_URL, label: "Source on GitHub" },
+      { href: "/mcp", label: "MCP server" },
+      { href: "/llms.txt", label: "llms.txt" },
       { href: MCP_GUIDE_URL, label: "Connect an agent" },
+      { href: GITHUB_URL, label: "Source on GitHub" },
       { href: GITHUB_DEPLOYMENT_URL, label: "Self-hosting" },
       { href: GITHUB_DESIGN_URL, label: "Design system" },
     ],
@@ -35,9 +47,12 @@ const COLUMNS = [
   {
     heading: "About",
     links: [
-      { href: GITHUB_README_URL, label: "What it is" },
+      { href: "/about", label: `About ${SITE_NAME}` },
+      { href: "/contact", label: "Contact" },
+      { href: "/privacy", label: "Privacy" },
+      { href: GITHUB_README_URL, label: "Documentation" },
       { href: GITHUB_LICENSE_URL, label: "License (AGPL-3.0)" },
-      { href: `${GITHUB_URL}/issues`, label: "Report an issue" },
+      { href: GITHUB_ISSUES_URL, label: "Report an issue" },
     ],
   },
 ];
@@ -54,8 +69,7 @@ export function SiteFooter() {
               <Wordmark />
             </span>
             <p className="mt-4 max-w-[260px] text-body-sm text-slate-gray">
-              A mindmap canvas with an assistant that can build it — and an MCP
-              server so your own agent can too.
+              {SITE_TAGLINE}
             </p>
             <a
               href={GITHUB_URL}

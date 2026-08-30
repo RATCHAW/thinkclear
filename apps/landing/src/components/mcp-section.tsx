@@ -39,11 +39,21 @@ export function McpSection() {
               </p>
             </Reveal>
             <Reveal delay={180}>
-              <div className="mt-8">
-                <ButtonLink href={MCP_GUIDE_URL} variant="outline">
-                  Read the setup guide
+              {/* Two destinations, and they are not the same reader. The
+                  reference is public and works before you have an account —
+                  which is the only version an agent evaluating this product can
+                  reach. The setup guide is inside the app and is per-client. */}
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <ButtonLink href="/mcp" variant="outline">
+                  MCP reference
                   <ArrowRightIcon className="size-[18px]" />
                 </ButtonLink>
+                <a
+                  href={MCP_GUIDE_URL}
+                  className="text-body-sm font-semibold text-mist-gray underline decoration-slate-gray underline-offset-4 transition-colors duration-150 hover:text-paper hover:decoration-sky-cyan"
+                >
+                  Setup guide for your client
+                </a>
               </div>
             </Reveal>
           </div>
