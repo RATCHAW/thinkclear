@@ -7,6 +7,7 @@ import {
   GITHUB_LICENSE_URL,
   GITHUB_README_URL,
   GITHUB_URL,
+  isFirstParty,
   MCP_GUIDE_URL,
   SIGN_UP_URL,
   SITE_NAME,
@@ -66,18 +67,32 @@ export function SiteFooter() {
             </a>
           </div>
 
+          {/* The column labels name three groups of links, which is a job for
+              a label and not for a heading: as `<h2>` they sat in the document
+              outline as peers of the sections above, so a screen reader
+              walking the page by heading found "Product" and "Developers"
+              alongside the actual argument the page is making. `aria-labelledby`
+              keeps the grouping without the rank. */}
           {COLUMNS.map((column) => (
             <div key={column.heading}>
-              <h2 className="text-caption font-semibold tracking-[0.1em] text-slate-gray uppercase">
+              <p
+                id={`footer-${column.heading.toLowerCase()}`}
+                className="text-caption font-semibold tracking-[0.1em] text-slate-gray uppercase"
+              >
                 {column.heading}
-              </h2>
-              <ul className="mt-4 flex flex-col gap-3">
+              </p>
+              <ul
+                aria-labelledby={`footer-${column.heading.toLowerCase()}`}
+                className="mt-4 flex flex-col gap-3"
+              >
                 {column.links.map((link) => (
                   <li key={link.label}>
                     <a
                       href={link.href}
                       rel={
-                        link.href.startsWith("http") ? "noreferrer" : undefined
+                        link.href.startsWith("http") && !isFirstParty(link.href)
+                          ? "noreferrer"
+                          : undefined
                       }
                       className="text-body-sm font-medium text-ink-navy transition-colors duration-150 hover:text-signal-blue"
                     >
@@ -96,7 +111,6 @@ export function SiteFooter() {
           </p>
           <a
             href={SIGN_UP_URL}
-            rel="noreferrer"
             className="text-caption font-semibold text-ink-navy transition-colors duration-150 hover:text-signal-blue"
           >
             app.thinkclear.xyz

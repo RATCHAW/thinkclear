@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import type { ReactNode } from "react";
-import { SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
+import { SiteStructuredData } from "@/components/structured-data";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 /**
@@ -16,34 +17,34 @@ const manrope = Manrope({
   variable: "--font-manrope",
 });
 
+/**
+ * `og:image` and `twitter:image` are deliberately absent here: `next` fills
+ * both in from `app/opengraph-image.tsx`, and a hand-written entry would
+ * override the generated one and go stale the first time that file changed.
+ *
+ * There is no `keywords` — no engine has read it in fifteen years, and the
+ * words it listed are ones the title and the copy should be earning anyway.
+ */
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${SITE_NAME} — think out loud, and let the map keep up`,
+    default: SITE_TITLE,
     template: `%s · ${SITE_NAME}`,
   },
-  description: SITE_TAGLINE,
+  description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
-  keywords: [
-    "mindmap",
-    "AI mindmap",
-    "MCP",
-    "Model Context Protocol",
-    "Claude Code",
-    "open source",
-  ],
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     url: SITE_URL,
     siteName: SITE_NAME,
-    title: `${SITE_NAME} — think out loud, and let the map keep up`,
-    description: SITE_TAGLINE,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
   },
   twitter: {
     card: "summary_large_image",
-    title: `${SITE_NAME} — think out loud, and let the map keep up`,
-    description: SITE_TAGLINE,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
   },
 };
 
@@ -62,6 +63,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           Skip to content
         </a>
         {children}
+        <SiteStructuredData />
       </body>
     </html>
   );

@@ -1,5 +1,6 @@
 import { ChevronDownIcon } from "@/components/icons";
 import { Reveal } from "@/components/reveal";
+import { JsonLd } from "@/components/structured-data";
 import { SectionHeader } from "@/components/ui/section-header";
 
 /**
@@ -37,9 +38,30 @@ const QUESTIONS = [
   },
 ];
 
+/**
+ * Built from the array above rather than written out beside it, which is the
+ * only arrangement where the two cannot disagree — a `FAQPage` whose answers
+ * have drifted from the visible ones is worse than no markup at all.
+ *
+ * Not here for rich results: Google narrowed those to government and health
+ * sites in 2023, and this is neither. It is here because the FAQ is where the
+ * page answers the questions somebody actually types, and this is the form an
+ * AI search engine or Bing can lift them in.
+ */
+const FAQ_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: QUESTIONS.map((entry) => ({
+    "@type": "Question",
+    name: entry.question,
+    acceptedAnswer: { "@type": "Answer", text: entry.answer },
+  })),
+};
+
 export function FaqSection() {
   return (
     <section className="border-t border-hairline">
+      <JsonLd data={FAQ_SCHEMA} />
       <div className="mx-auto max-w-page px-5 py-20 sm:px-8 lg:py-28">
         <SectionHeader eyebrow="Questions" title="Before you sign up." />
 

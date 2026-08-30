@@ -56,7 +56,6 @@ export function SiteHeader() {
         <div className="ml-auto flex items-center gap-2 md:ml-0">
           <a
             href={SIGN_UP_URL}
-            rel="noreferrer"
             className="hidden rounded-[4px] px-2 py-1 text-body-sm font-semibold text-ink-navy transition-colors duration-150 hover:text-signal-blue sm:inline-flex"
           >
             Sign in
