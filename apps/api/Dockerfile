@@ -4,7 +4,7 @@
 # The runtime stage installs the production graph from the same lockfile and
 # takes nothing from `build` but the two `dist` directories.
 
-FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS build
+FROM node:22-alpine@sha256:ce8d97f7cfc7c5386421eb932df20a29df99b1a7f469f6157d5c9956702ffadc AS build
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
 WORKDIR /repo
@@ -20,7 +20,7 @@ COPY apps/api apps/api
 # `apps/api` consumes @thinkclear/shared from `dist`, so shared builds first.
 RUN pnpm --filter @thinkclear/shared build && pnpm --filter @thinkclear/api build
 
-FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS runtime
+FROM node:22-alpine@sha256:ce8d97f7cfc7c5386421eb932df20a29df99b1a7f469f6157d5c9956702ffadc AS runtime
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     NODE_ENV=production \
     PORT=3000
