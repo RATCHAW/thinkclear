@@ -5,7 +5,7 @@ services:
     # Pinned by digest, and to the same one CI runs — a suite that passes
     # against a different Mongo than the one on your machine is worth less than
     # the minutes it costs. Bump this and .github/workflows/*.yml together.
-    image: mongo:8@sha256:e0ce8c35124d4a9f9785532d1f268f39e9728ffa1cb38f46fa482436424c4bd3
+    image: mongo:9@sha256:bac22ea7710d774103dcad3ec8ac13cba1eb378f488e3ce8a6b3a1adf2ba9dcc
     container_name: thinkclear-mongo
     ports:
       - "27017:27017"
