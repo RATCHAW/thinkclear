@@ -21,6 +21,7 @@ COPY apps/api apps/api
 RUN pnpm --filter @thinkclear/shared build && pnpm --filter @thinkclear/api build
 
 FROM node:22-alpine@sha256:ce8d97f7cfc7c5386421eb932df20a29df99b1a7f469f6157d5c9956702ffadc AS runtime
+RUN apk upgrade --no-cache
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     NODE_ENV=production \
     PORT=3000
