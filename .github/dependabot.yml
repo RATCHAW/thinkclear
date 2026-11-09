@@ -7,8 +7,16 @@ updates:
       day: monday
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
+    allow:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
     groups:
+      security-dependencies:
+        applies-to: security-updates
+        patterns: ["*"]
       non-major-dependencies:
         update-types: [minor, patch]
 
@@ -27,6 +35,11 @@ updates:
   # the docker ecosystem only reads Dockerfiles, so compose needs its own entry.
   - package-ecosystem: docker-compose
     directory: /
+    allow:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
     schedule:
       interval: weekly
       day: monday
@@ -35,6 +48,11 @@ updates:
 
   - package-ecosystem: docker
     directory: /apps/api
+    allow:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
     schedule:
       interval: weekly
       day: monday
@@ -43,6 +61,11 @@ updates:
 
   - package-ecosystem: docker
     directory: /apps/web
+    allow:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
     schedule:
       interval: weekly
       day: monday

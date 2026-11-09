@@ -232,7 +232,7 @@ describe("mindmap workspace journey", () => {
     // Opening a note is a navigation, so it is linkable and Back closes it.
     await expect.poll(currentUrl).toBe("/mindmaps/mindmap-1?note=root");
 
-    const note = screen.getByRole("textbox", { name: "Note" });
+    const note = screen.getByRole("textbox", { name: "Note", exact: true });
     await expect.element(note).toBeVisible();
     await note.fill("Ship the **API** first.");
 

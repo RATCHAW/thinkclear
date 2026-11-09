@@ -15,6 +15,7 @@
     },
     "openapi": {
       "dependsOn": ["^build"],
+      "env": ["MONGODB_URI", "BETTER_AUTH_SECRET"],
       "outputs": ["openapi.json"]
     },
     "generate:types": {

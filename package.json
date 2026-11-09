@@ -16,7 +16,7 @@
     "typecheck": "turbo run typecheck",
     "openapi": "turbo run openapi generate:types",
     "test": "vitest run",
-    "test:spec": "vitest run --project shared:spec --project api:spec --project web:spec",
+    "test:spec": "vitest run --project shared:spec --project api:spec --project web:spec --project landing:spec",
     "test:e2e": "vitest run --project api:e2e --project web:e2e",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -24,16 +24,16 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@vitest/coverage-v8": "4.1.11",
-    "eslint": "^10.9.1",
+    "@vitest/coverage-v8": "4.1.12",
+    "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-turbo": "^2.10.12",
-    "globals": "^17.11.0",
-    "prettier": "^3.9.6",
-    "turbo": "^2.10.12",
-    "typescript-eslint": "^8.68.0",
-    "vitest": "4.1.11"
+    "eslint-plugin-turbo": "^2.11.10",
+    "globals": "^17.14.0",
+    "prettier": "^3.9.10",
+    "turbo": "^2.11.10",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "4.1.12"
   },
   "pnpm": {
     "overrides": {

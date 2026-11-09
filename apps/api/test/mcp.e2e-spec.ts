@@ -83,7 +83,11 @@ describe("MCP HTTP API", () => {
   });
 
   const token = (claims: Record<string, unknown>, key = signingKey) =>
-    new SignJWT({ scope: "mindmaps:read mindmaps:write", ...claims })
+    new SignJWT({
+      azp: "test-client",
+      scope: "mindmaps:read mindmaps:write",
+      ...claims,
+    })
       .setProtectedHeader({ alg: "EdDSA", kid: "test" })
       .setIssuer(issuer)
       .setAudience(MCP_RESOURCE_URL)
@@ -129,8 +133,18 @@ describe("MCP HTTP API", () => {
     expect(tools.forOwner).not.toHaveBeenCalled();
   });
 
+  it("rejects a token without an authorized party", async () => {
+    const response = await rpc(await token({ azp: undefined }));
+
+    expect(response.status).toBe(401);
+    expect(tools.forOwner).not.toHaveBeenCalled();
+  });
+
   it("rejects a token minted for a different resource", async () => {
-    const elsewhere = await new SignJWT({ scope: "mindmaps:read" })
+    const elsewhere = await new SignJWT({
+      azp: "test-client",
+      scope: "mindmaps:read",
+    })
       .setProtectedHeader({ alg: "EdDSA", kid: "test" })
       .setIssuer(issuer)
       .setAudience("https://someone-elses-app.example/mcp")
@@ -148,7 +162,10 @@ describe("MCP HTTP API", () => {
   });
 
   it("rejects an expired token", async () => {
-    const stale = await new SignJWT({ scope: "mindmaps:read" })
+    const stale = await new SignJWT({
+      azp: "test-client",
+      scope: "mindmaps:read",
+    })
       .setProtectedHeader({ alg: "EdDSA", kid: "test" })
       .setIssuer(issuer)
       .setAudience(MCP_RESOURCE_URL)
